@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Entrar | Plataforma de Recrutamento</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container nav-wrap">
+        <div class="brand">Plataforma de Recrutamento</div>
+        <nav class="main-nav" aria-label="Menu principal">
+          <a href="index.html">Início</a>
+          <a href="vagas.html">Vagas</a>
+          <a href="empresas.html">Empresas</a>
+          <a href="candidatos.html">Candidatos</a>
+          <span id="authLinks" class="auth-links"></span>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container page-content">
+      <div class="section-header">
+        <div>
+          <span class="eyebrow">Acessar</span>
+          <h1>Login</h1>
+        </div>
+      </div>
+
+      <form id="loginForm" class="card" style="max-width:480px">
+        <label>
+          E-mail
+          <input type="email" id="loginEmail" required />
+        </label>
+        <label>
+          Senha
+          <input type="password" id="loginPassword" required />
+        </label>
+        <div style="margin-top:12px">
+          <button class="btn btn-primary" type="submit">Entrar</button>
+          <a href="register.html" style="margin-left:12px">Criar conta</a>
+        </div>
+      </form>
+
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">© <span id="year"></span> Plataforma de Recrutamento</div>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Registrar | Plataforma de Recrutamento</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container nav-wrap">
+        <div class="brand">Plataforma de Recrutamento</div>
+        <nav class="main-nav" aria-label="Menu principal">
+          <a href="index.html">Início</a>
+          <a href="vagas.html">Vagas</a>
+          <a href="empresas.html">Empresas</a>
+          <a href="candidatos.html">Candidatos</a>
+          <span id="authLinks" class="auth-links"></span>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container page-content">
+      <div class="section-header">
+        <div>
+          <span class="eyebrow">Cadastro</span>
+          <h1>Criar conta</h1>
+        </div>
+      </div>
+
+      <form id="registerForm" class="card" style="max-width:520px">
+        <label>
+          Nome completo
+          <input type="text" id="regName" required />
+        </label>
+        <label>
+          E-mail
+          <input type="email" id="regEmail" required />
+        </label>
+        <label>
+          Senha
+          <input type="password" id="regPassword" required />
+        </label>
+        <label>
+          Tipo de conta
+          <select id="regRole" required>
+            <option value="candidate">Candidato</option>
+            <option value="company">Empresa</option>
+            <option value="recruiter">Recrutador</option>
+          </select>
+        </label>
+        <label id="companyNameLabel" style="display:none">
+          Nome da empresa
+          <input type="text" id="regCompanyName" />
+        </label>
+
+        <div style="margin-top:12px">
+          <button class="btn btn-primary" type="submit">Criar conta</button>
+          <a href="login.html" style="margin-left:12px">Já tenho conta</a>
+        </div>
+      </form>
+
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">© <span id="year"></span> Plataforma de Recrutamento</div>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
