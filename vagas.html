@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vagas | Plataforma de Recrutamento</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container nav-wrap">
+        <div class="brand">Plataforma de Recrutamento</div>
+        <nav class="main-nav" aria-label="Menu principal">
+          <a href="index.html">Início</a>
+          <a href="vagas.html">Vagas</a>
+          <a href="empresas.html">Empresas</a>
+          <a href="candidatos.html">Candidatos</a>
+          <span id="authLinks" class="auth-links"></span>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container page-content">
+      <div class="section-header">
+        <div>
+          <span class="eyebrow">Oportunidades</span>
+          <h1>Vagas</h1>
+        </div>
+      </div>
+
+      <div class="filters">
+        <input id="searchInput" placeholder="Pesquisar por título ou empresa" />
+        <input id="locationInput" placeholder="Local" />
+        <select id="typeFilter">
+          <option value="">Todos os tipos</option>
+          <option value="fulltime">Tempo integral</option>
+          <option value="parttime">Meio período</option>
+          <option value="contract">Contrato</option>
+        </select>
+        <button id="filterBtn" class="btn btn-secondary">Filtrar</button>
+      </div>
+
+      <div id="jobsList" class="jobs-list"></div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">© <span id="year"></span> Plataforma de Recrutamento</div>
+    </footer>
+
+    <script src="script.js" defer></script>
+  </body>
+</html>

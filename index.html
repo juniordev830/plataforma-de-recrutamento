@@ -1,81 +1,71 @@
 <!doctype html>
 <html lang="pt-BR">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Plataforma de recrutamento e seleção - template inicial" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Plataforma de Recrutamento</title>
-    <style>
-      /* Estilos mínimos e limpos para visualização rápida */
-      :root {
-        --bg: #f7f9fb;
-        --card: #ffffff;
-        --muted: #6b7280;
-        --accent: #2563eb;
-      }
-      html,body{
-        height:100%;
-        margin:0;
-        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
-        background:var(--bg);
-        color:#111827;
-      }
-      .container{max-width:1000px;margin:36px auto;padding:24px}
-      header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
-      header h1{font-size:1.25rem;margin:0}
-      nav a{color:var(--accent);text-decoration:none;margin-left:16px}
-      main{background:var(--card);padding:24px;border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,0.04)}
-      .lead{color:var(--muted);margin-top:8px}
-      .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:16px}
-      .card{padding:16px;border-radius:8px;background:#fff;border:1px solid #eef2f7}
-      footer{margin-top:18px;color:var(--muted);font-size:0.9rem;text-align:center}
-      @media (max-width:520px){header{flex-direction:column;align-items:flex-start}nav{margin-top:8px}}
-    </style>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   </head>
   <body>
-    <div class="container">
-      <header>
-        <h1>Plataforma de Recrutamento</h1>
-        <nav>
-          <a href="#vagas">Vagas</a>
-          <a href="#empresas">Empresas</a>
-          <a href="#candidatos">Candidatos</a>
+    <header class="site-header">
+      <div class="container nav-wrap">
+        <div class="brand">Plataforma de Recrutamento</div>
+        <nav class="main-nav" aria-label="Menu principal">
+          <a href="index.html">Início</a>
+          <a href="vagas.html">Vagas</a>
+          <a href="empresas.html">Empresas</a>
+          <a href="candidatos.html">Candidatos</a>
+          <span id="authLinks" class="auth-links"></span>
         </nav>
-      </header>
+      </div>
+    </header>
 
-      <main>
-        <section id="hero">
-          <h2>Conectando empresas e candidatos</h2>
-          <p class="lead">Um template HTML limpo e acessível para começar a desenvolver a sua plataforma de recrutamento.</p>
-        </section>
+    <main class="container page-home">
+      <section class="hero">
+        <div>
+          <span class="eyebrow">Plataforma</span>
+          <h1>Conectando talentos às melhores oportunidades</h1>
+          <p class="lead">Encontre vagas, gerencie candidaturas e publique oportunidades de forma simples e eficiente.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="vagas.html">Ver vagas</a>
+            <a class="btn btn-secondary" href="register.html">Criar conta</a>
+          </div>
+        </div>
+        <div class="hero-panel">
+          <div class="stats-card">
+            <strong>120</strong>
+            <div class="meta">Vagas ativas</div>
+          </div>
+          <div class="stats-card">
+            <strong>48</strong>
+            <div class="meta">Empresas</div>
+          </div>
+        </div>
+      </section>
 
-        <section class="grid" style="margin-top:24px">
-          <article class="card">
-            <h3 id="vagas">Vagas</h3>
-            <p class="lead">Publique e gerencie oportunidades de trabalho — filtros por cidade, área e tipo de contrato.</p>
-          </article>
+      <section class="features">
+        <div class="feature-card">
+          <h3>Buscar vagas</h3>
+          <p>Filtre por palavra-chave, local e tipo de contratação.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Gerenciar candidaturas</h3>
+          <p>Acompanhe suas candidaturas e histórico em um único lugar.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Publicar vagas</h3>
+          <p>Empresas e recrutadores podem publicar oportunidades e gerenciar o processo seletivo.</p>
+        </div>
+      </section>
+    </main>
 
-          <article class="card">
-            <h3 id="empresas">Empresas</h3>
-            <p class="lead">Painel simples para empresas acompanharem candidaturas e processos seletivos.</p>
-          </article>
+    <footer class="site-footer">
+      <div class="container">© <span id="year"></span> Plataforma de Recrutamento</div>
+    </footer>
 
-          <article class="card">
-            <h3 id="candidatos">Candidatos</h3>
-            <p class="lead">Crie perfis, envie candidaturas e acompanhe o status dos processos.</p>
-          </article>
-        </section>
-
-      </main>
-
-      <footer>
-        &copy; <span id="year">2026</span> Plataforma de Recrutamento — Template inicial
-      </footer>
-    </div>
-
-    <script>
-      // Preenchimento dinâmico simples
-      document.getElementById('year').textContent = new Date().getFullYear();
-    </script>
+    <script src="script.js" defer></script>
   </body>
 </html>

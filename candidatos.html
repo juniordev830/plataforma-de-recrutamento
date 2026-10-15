@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Candidatos | Plataforma de Recrutamento</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container nav-wrap">
+        <div class="brand">Plataforma de Recrutamento</div>
+        <nav class="main-nav" aria-label="Menu principal">
+          <a href="index.html">Início</a>
+          <a href="vagas.html">Vagas</a>
+          <a href="empresas.html">Empresas</a>
+          <a href="candidatos.html">Candidatos</a>
+          <span id="authLinks" class="auth-links"></span>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container page-content">
+      <div class="section-header">
+        <div>
+          <span class="eyebrow">Candidato</span>
+          <h1>Meu Perfil</h1>
+        </div>
+      </div>
+
+      <div id="authNotice" class="card" style="display:none"></div>
+
+      <div id="candidatePanel" class="candidate-panel">
+        <form id="candidateForm" class="candidate-form card">
+          <label>Nome <input id="name" /></label>
+          <label>E-mail <input id="email" type="email" /></label>
+          <label>Sobre <textarea id="bio"></textarea></label>
+          <button class="btn btn-primary" type="submit">Salvar perfil</button>
+        </form>
+
+        <div class="applications-box card">
+          <h3>Minhas candidaturas</h3>
+          <div id="applicationsList" class="applications-list"></div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">© <span id="year"></span> Plataforma de Recrutamento</div>
+    </footer>
+
+    <script src="script.js" defer></script>
+  </body>
+</html>
