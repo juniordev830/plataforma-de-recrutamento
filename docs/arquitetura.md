@@ -10,13 +10,13 @@ A solução é composta por:
 - arquivos CSS para apresentação visual;
 - arquivo JavaScript para lógica de interação e filtros;
 - arquivo JSON para dados mockados de vagas;
-- armazenamento local do navegador para persistir perfil e candidaturas.
+- armazenamento local do navegador para persistir perfil, usuários e candidaturas.
 
 ## 2. Objetivo da arquitetura
 
 A arquitetura foi pensada para:
 
-- reduzir dependencies externas;
+- reduzir dependências externas;
 - acelerar a execução local;
 - facilitar manutenção e entendimento do código;
 - servir como base para evolução em React, componentes reutilizáveis e backend real.
@@ -31,6 +31,9 @@ Responsável pela visualização e navegação das páginas:
 - `vagas.html`
 - `empresas.html`
 - `candidatos.html`
+- `login.html`
+- `register.html`
+- `dashboard.html`
 
 Cada página representa uma visão do sistema e está conectada ao mesmo conjunto de estilos e scripts.
 
@@ -52,8 +55,9 @@ A lógica de interação inclui:
 
 - renderização de vagas;
 - filtros dinâmicos por texto, tipo e localização;
+- autenticação simulada e cadastro por perfil;
 - função de candidatura simulada;
-- persistência de perfil e candidaturas em `localStorage`;
+- persistência de usuários, perfil e candidaturas em `localStorage`;
 - carregamento de dados mockados.
 
 ### Camada de dados
@@ -64,7 +68,7 @@ Arquivo principal:
 
 Esse arquivo contém as vagas de exemplo, simulando um banco de dados inicial para o protótipo.
 
-## 4. Fluxo de uso
+## 4. Fluxos do sistema
 
 ### Fluxo candidato
 
@@ -72,21 +76,31 @@ Esse arquivo contém as vagas de exemplo, simulando um banco de dados inicial pa
 2. Navega até a seção de vagas;
 3. Aplica filtros para encontrar oportunidades relevantes;
 4. Clica em "Candidatar-se";
-5. Insere nome e e-mail;
+5. O sistema valida a autenticação;
 6. A candidatura é salva localmente no navegador.
 
-### Fluxo perfil
+### Fluxo cadastro e login
 
-1. Usuário acessa a área do candidato;
-2. Preenche nome, e-mail e resumo profissional;
-3. O perfil é salvo em `localStorage`;
-4. O sistema reutiliza esses dados ao longo da navegação.
+1. Usuário acessa `register.html`;
+2. Cria conta com papel definido;
+3. O sistema salva o usuário em `localStorage`;
+4. Usuário entra em `login.html`;
+5. O sistema autentica e redireciona para `dashboard.html`.
+
+### Fluxo dashboard
+
+1. Usuário autenticado acessa o painel;
+2. O conteúdo muda conforme papel:
+   - candidato: perfil e candidaturas;
+   - empresa: dados da empresa e ação simulada de publicar vaga;
+   - recrutador: painel equivalente com foco em processos e vagas.
 
 ## 5. Persistência atual
 
 No estado atual do protótipo, a persistência é feita por `localStorage`, o que permite:
 
-- manter perfil do candidato;
+- manter perfil do usuário;
+- manter usuários cadastrados;
 - manter histórico de candidaturas.
 
 Essa solução é adequada para protótipos, porém não deve ser usada como armazenamento definitivo em produção por falta de segurança e escalabilidade.
@@ -107,10 +121,10 @@ Essa solução é adequada para protótipos, porém não deve ser usada como arm
 ## 7. Princípios adotados
 
 - Simplicidade na execução local;
-- Separação de responsabilidades;
-- Fácil entendimento por desenvolvedores iniciantes;
-- Escalabilidade incremental;
-- Base sólida para evolução para arquitetura profissional de produção.
+- separação de responsabilidades;
+- fácil entendimento por desenvolvedores iniciantes;
+- escalabilidade incremental;
+- base sólida para evolução para arquitetura profissional de produção.
 
 ## 8. Considerações finais
 

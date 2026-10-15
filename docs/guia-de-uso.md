@@ -6,9 +6,9 @@ Este guia apresenta como explorar e testar o protótipo da Plataforma de Recruta
 
 ## 2. Requisitos para uso
 
-- Computador, notebook ou dispositivo móvel;
-- Navegador atualizado;
-- Acesso à pasta do projeto localmente.
+- navegador atualizado;
+- acesso à pasta do projeto localmente;
+- servidor local opcional.
 
 ## 3. Como executar o projeto
 
@@ -37,7 +37,7 @@ http://localhost:8000
 
 ### Página inicial
 
-A página inicial comunica a proposta da plataforma e apresenta funcionalidades-chave da solução.
+Apresenta a proposta da plataforma e página principal com destaque para as funcionalidades.
 
 ### Página de vagas
 
@@ -61,47 +61,72 @@ Na página `candidatos.html`, o usuário pode:
 - salvar o perfil localmente;
 - verificar candidaturas realizadas.
 
-## 5. Como candidatar-se
+### Login e cadastro
+
+A página `login.html` permite acesso ao sistema. A página `register.html` permite criar conta com papéis distintos: candidato, empresa e recrutador.
+
+### Dashboard
+
+A página `dashboard.html` exibe conteúdo adaptado ao perfil logado.
+
+## 5. Como criar conta
+
+1. Acesse `register.html`;
+2. Selecione o tipo de conta;
+3. Informe nome, e-mail, senha e empresa se necessário;
+4. Confirme o cadastro;
+5. O sistema salva o usuário e redireciona para o dashboard.
+
+## 6. Como fazer login
+
+1. Acesse `login.html`;
+2. Informe e-mail e senha;
+3. O sistema valida os dados;
+4. O usuário entra no dashboard.
+
+## 7. Como candidatar-se
 
 1. Abra a página de vagas;
 2. Clique em "Candidatar-se" em uma vaga desejada;
-3. Informe nome completo e e-mail;
-4. Confirme a ação;
+3. O sistema verifica se o usuário está autenticado como candidato;
+4. Informe os dados solicitados;
 5. A candidatura será registrada no navegador.
 
-## 6. Como visualizar as candidaturas
+## 8. Como visualizar as candidaturas
 
 1. Acesse a página de candidatos;
 2. Observe a seção "Minhas candidaturas";
 3. A lista será exibida com dados do candidato e da vaga.
 
-## 7. Dados locais e uso do navegador
+## 9. Dados locais e uso do navegador
 
-O sistema usa o armazenamento local do navegador (`localStorage`) para manter:
+O sistema usa `localStorage` para manter:
 
 - informações do perfil do usuário;
-- histórico de candidaturas.
+- usuários cadastrados;
+- histórico de candidaturas;
+- sessão atual autenticada.
 
 Importante:
 - esses dados ficam armazenados no navegador usado;
 - em ambiente de navegação privada ou limpeza de cache, os dados podem ser perdidos;
 - em produção, o ideal é substituir por banco de dados real e backend seguro.
 
-## 8. Dicas de uso
+## 10. Dicas de uso
 
 - teste diferentes termos nos filtros para validar a busca;
 - preencha um perfil realista para entender o comportamento;
 - use o protótipo para validar UX antes de evoluir para um sistema completo;
 - combine o fluxo do site com apresentações de stakeholders e testes de usabilidade.
 
-## 9. Observações importantes
+## 11. Observações importantes
 
-Este é um protótipo didático e demonstrativo. A aplicação não substitui um sistema de recrutamento completo, mas oferece uma base funcional para demonstação, validação de layouts e apresentação do fluxo de seleção.
+Este é um protótipo didático e demonstrativo. A aplicação não substitui um sistema de recrutamento completo, mas oferece uma base funcional para demonstração, validação de layouts e apresentação do fluxo de seleção.
 
-## 10. Próximos passos sugeridos
+## 12. Próximos passos sugeridos
 
 - integrar um banco de dados real;
-- autenticar usuários;
+- autenticar usuários com segurança;
 - criar painel administrativo;
 - conectar com APIs de cadastro e vagas;
 - permitir upload de currículos;
