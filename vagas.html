@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vagas | Plataforma de Recrutamento</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container nav-wrap">
+        <div class="brand">Plataforma de Recrutamento</div>
+        <nav class="main-nav" aria-label="Menu principal">
+          <a href="index.html">Início</a>
+          <a href="vagas.html">Vagas</a>
+          <a href="empresas.html">Empresas</a>
+          <a href="candidatos.html">Candidatos</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container page-content">
+      <div class="section-header">
+        <div>
+          <span class="eyebrow">Oportunidades</span>
+          <h1>Vagas disponíveis</h1>
+        </div>
+      </div>
+
+      <section class="filters" aria-label="Filtros de vagas">
+        <input id="searchInput" type="text" placeholder="Buscar por cargo ou empresa" />
+        <input id="locationInput" type="text" placeholder="Local" />
+        <select id="typeFilter">
+          <option value="">Todos os tipos</option>
+          <option value="fulltime">Tempo integral</option>
+          <option value="parttime">Meio período</option>
+          <option value="contract">Contrato</option>
+        </select>
+        <button class="btn btn-primary" id="filterBtn">Filtrar</button>
+      </section>
+
+      <section id="jobsList" class="jobs-list" aria-live="polite"></section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">© <span id="year"></span> Plataforma de Recrutamento</div>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>

@@ -1,0 +1,34 @@
+[
+  {
+    "id": 1,
+    "title": "Desenvolvedor Front-end",
+    "company": "NovaTech",
+    "location": "Remoto",
+    "type": "fulltime",
+    "typeLabel": "Tempo integral"
+  },
+  {
+    "id": 2,
+    "title": "Analista de Dados",
+    "company": "DataCore",
+    "location": "São Paulo",
+    "type": "fulltime",
+    "typeLabel": "Tempo integral"
+  },
+  {
+    "id": 3,
+    "title": "Especialista em Recrutamento",
+    "company": "GreenFlow",
+    "location": "Belo Horizonte",
+    "type": "contract",
+    "typeLabel": "Contrato"
+  },
+  {
+    "id": 4,
+    "title": "Designer UX/UI",
+    "company": "NovaTech",
+    "location": "Rio de Janeiro",
+    "type": "parttime",
+    "typeLabel": "Meio período"
+  }
+]
