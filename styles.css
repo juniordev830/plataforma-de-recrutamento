@@ -192,7 +192,8 @@ textarea {
 .job,
 .applications-item,
 .candidate-form,
-.applications-box {
+.applications-box,
+.card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -220,7 +221,10 @@ textarea {
 .filters input,
 .filters select,
 .candidate-form input,
-.candidate-form textarea {
+.candidate-form textarea,
+#jobForm input,
+#jobForm select,
+#jobForm textarea {
   width: 100%;
   padding: 12px 14px;
   border: 1px solid var(--border);
@@ -277,7 +281,8 @@ textarea {
 }
 
 .candidate-form,
-.applications-box {
+.applications-box,
+.card {
   padding: 22px;
 }
 
@@ -286,20 +291,30 @@ textarea {
   gap: 16px;
 }
 
-.candidate-form label {
+.candidate-form label,
+#jobForm label {
   display: grid;
   gap: 8px;
   font-weight: 700;
 }
 
-.applications-list {
+.applications-list,
+.company-job-list {
   display: grid;
   gap: 12px;
   margin-top: 12px;
 }
 
-.applications-item {
-  padding: 14px 16px;
+.company-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+#jobForm {
+  display: grid;
+  gap: 16px;
 }
 
 .site-footer {
@@ -313,6 +328,7 @@ textarea {
   .features,
   .company-grid,
   .candidate-panel,
+  .company-panel,
   .filters {
     grid-template-columns: 1fr;
   }
