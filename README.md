@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-A Plataforma de Recrutamento é um protótipo de sistema para conectar empresas, recrutadores e candidatos em um ambiente digital para publicação de vagas, gestão de processos seletivos e acompanhamento de candidaturas. O projeto foi pensado como uma base funcional para demonstração, testes de UX e evolução para uma solução real.
+A Plataforma de Recrutamento é um protótipo de sistema para conectar empresas, recrutadores e candidatos em um ambiente digital para publicação de vagas, gestão de processos seletivos e acompanhamento de candidaturas.
 
 O sistema simula:
 - cadastro de usuários com papéis distintos;
@@ -11,29 +11,6 @@ O sistema simula:
 - busca e filtro de vagas;
 - candidaturas realizadas por candidatos;
 - apresentação de empresas em destaque.
-
-## Objetivos
-
-- Centralizar vagas em uma interface simples e funcional;
-- permitir que candidatos busquem oportunidades;
-- permitir que empresas e recrutadores tenham visão do processo;
-- demonstrar fluxo de autenticação e papel do usuário;
-- servir como base para evoluções em frontend e backend.
-
-## Funcionalidades implementadas
-
-- Página inicial institucional;
-- listagem de vagas com filtros por palavra-chave, local e tipo de contrato;
-- página de empresas em destaque;
-- área do candidato para cadastro e acompanhamento de candidaturas;
-- páginas de login e cadastro;
-- usuários com papéis:
-  - candidato
-  - empresa
-  - recrutador
-- dashboard com conteúdo adaptado ao tipo de usuário;
-- simulação de publicação de vaga para empresas/recrutadores;
-- persistência em localStorage para protótipo.
 
 ## Estrutura do projeto
 
@@ -53,166 +30,51 @@ plataforma-de-recrutamento/
 ├── docs/
 │   ├── arquitetura.md
 │   └── guia-de-uso.md
+├── server.js
+├── package.json
+├── .env.example
 ├── .gitignore
 └── LICENSE
 ```
 
-## Estrutura de usuários
+## Situação atual
 
-O sistema atual trabalha com uma autenticação simulada. Os usuários são armazenados no navegador em `localStorage` e possuem os campos:
+- Frontend: protótipo em HTML/CSS/JS (branch `feature/site-basico`).
+- Backend: API em Node.js + Express + SQLite (adicionada na branch `feature/site-basico` e agora também disponível em `main`).
+- Documentação: README e documentos em `docs/`.
 
-- `id`
-- `name`
-- `email`
-- `password`
-- `role`
-- `companyName` (opcional, para empresa/recrutador)
+## Como executar localmente (frontend + backend)
 
-Papéis:
-- `candidate`: candidato em busca de emprego;
-- `company`: empresa;
-- `recruiter`: recrutador ou consultor de RH.
-
-## Fluxo de autenticação
-
-### Cadastro
-
-- usuário entra em `register.html`;
-- preenche nome, e-mail, senha e papel;
-- se o papel for empresa/recrutador, pode informar o nome da empresa;
-- ao concluir, o sistema salva o usuário e o torna usuário atual logado.
-
-### Login
-
-- usuário entra em `login.html`;
-- informa e-mail e senha;
-- o sistema valida a combinação no localStorage;
-- caso validado, o usuário é redirecionado para o dashboard.
-
-### Dashboard
-
-- candidato visualiza dados pessoais e acesso ao perfil/candidaturas;
-- empresa/recrutador visualiza identificação da conta e ação simulada de publicar vaga.
-
-## Fluxo de candidatura
-
-- o usuário acessa `vagas.html`;
-- pesquisa ou filtra vagas;
-- clica em "Candidatar-se";
-- o sistema valida se o usuário está logado como candidato;
-- caso esteja autenticado, a candidatura é salva no navegador;
-- o perfil e histórico ficam registrados localmente.
-
-## Dados mockados
-
-Os dados das vagas estão em `jobs.json`. Estrutura:
-
-```json
-{
-  "id": 1,
-  "title": "Desenvolvedor Front-end",
-  "company": "NovaTech",
-  "location": "Remoto",
-  "type": "fulltime",
-  "typeLabel": "Tempo integral"
-}
-```
-
-As candidaturas são armazenadas em `localStorage` em formato de lista de objetos.
-
-## Persistência
-
-Como o projeto é protótipo, os dados são armazenados em `localStorage`. Isso inclui:
-
-- usuários cadastrados;
-- usuário logado;
-- candidaturas;
-- perfil do candidato.
-
-Observação:
-- `localStorage` não é uma solução segura para produção;
-- foi usado apenas para simulação de fluxo em frontend.
-
-## Tecnologias utilizadas
-
-- HTML5
-- CSS3
-- JavaScript Vanilla
-- JSON
-- LocalStorage
-
-## Como executar localmente
-
-### Opção 1: abrir diretamente no navegador
-
-1. Acesse a pasta do projeto;
-2. Abra `index.html` no navegador.
-
-### Opção 2: usar servidor local
-
-Com Python:
+1. Clone o repositório e mude para a branch `main`:
 
 ```bash
+git clone https://github.com/juniordev830/plataforma-de-recrutamento.git
 cd plataforma-de-recrutamento
-python -m http.server 8000
+git checkout main
 ```
 
-Depois acesse:
+2. Copie o arquivo de ambiente e defina a chave JWT:
 
-```text
-http://localhost:8000
+```bash
+cp .env.example .env
+# Edite .env e defina JWT_SECRET
 ```
 
-## Limitações atuais
+3. Instale dependências e rode o servidor:
 
-- não há backend real;
-- senhas ficam salvas em texto puro em `localStorage`;
-- não há autenticação segura;
-- não há autorização robusta;
-- não há painel administrativo completo;
-- não há banco de dados real;
-- não há upload de currículo;
-- não há confirmação por e-mail;
-- não há suporte a sessões seguras.
+```bash
+npm install
+npm run dev    # ou npm start
+```
 
-## Roadmap de evolução
+4. Acesse no navegador:
 
-### Fase 1 — refinamento do protótipo
-- melhorar layout UX/UI;
-- adicionar validações mais fortes;
-- incluir filtros avançados de vagas.
+- http://localhost:3001 — o servidor serve frontend estático e fornece a API.
 
-### Fase 2 — backend
-- criar API com Node.js ou Python;
-- banco de dados PostgreSQL ou SQLite;
-- autenticação com hash de senha;
-- autenticação por sessão ou JWT.
+## API (resumo)
 
-### Fase 3 — gestão completa
-- painel para empresas publicar vagas;
-- painel para recrutadores gerenciar candidatos;
-- fluxo de entrevista e status da candidatura.
-
-### Fase 4 — produção
-- deploy em Vercel/Netlify + backend em Render/Vercel;
-- proteção com HTTPS;
-- recuperação de senha;
-- logs e auditoria;
-- integração com e-mail e upload de documentos.
-
-## Boas práticas aplicadas
-
-- organização por páginas;
-- separação entre HTML, CSS e JS;
-- dados mockados em arquivo JSON;
-- uso de localStorage para protótipo;
-- layout responsivo;
-- foco em clareza de navegação e usabilidade.
-
-## Conclusão
-
-A Plataforma de Recrutamento está estruturada como um protótipo funcional de recrutamento e seleção, com foco na experiência do usuário e na simulação realista do fluxo de vagas, cadastro, login e gestão de candidaturas. A solução atual é ideal para apresentação, estudos de UX e evolução para uma aplicação comercial completa.
+Veja `docs/TECNICO.md` para detalhes sobre endpoints, variáveis de ambiente e arquitetura.
 
 ---
 
-Documentação criada para apoiar a apresentação e evolução do protótipo.
+Se precisar, posso: 1) integrar o frontend com a API (substituir localStorage por chamadas fetch), 2) criar um PR em vez de merge direto, 3) preparar scripts de deploy. Responda o que prefere.
