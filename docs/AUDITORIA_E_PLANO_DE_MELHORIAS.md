@@ -1,6 +1,6 @@
 # Auditoria inicial e plano de melhorias
 
-Este documento separa achados confirmados pela leitura do código de itens que ainda precisam ser executados e verificados. A auditoria foi feita por inspeção estática; os testes ainda precisam ser executados em ambiente Node.js.
+Este documento separa achados confirmados pela leitura do código de itens que ainda precisam ser executados e verificados. A auditoria inicial foi feita por inspeção estática. Em 1º de novembro de 2026, o GitHub Actions executou a instalação de dependências, `node --check server.js` e `npm test` na revisão do PR #5: os 10 testes passaram, sem falhas. A instalação reportou 12 vulnerabilidades (2 baixas, 5 moderadas, 4 altas e 1 crítica). Os nomes dos pacotes e avisos específicos ainda precisam ser extraídos de um relatório de auditoria completo; não atualizar dependências às cegas.
 
 ## Achados confirmados
 
@@ -33,7 +33,8 @@ Este documento separa achados confirmados pela leitura do código de itens que a
 
 ## Verificações ainda pendentes
 
-- Executar `npm ci`/instalação limpa, `npm test` e `node --check server.js`.
+- Repetir uma instalação reproduzível com lockfile versionado; atualmente o repositório não contém `package-lock.json` na branch auditada.
+- Gerar relatório completo de `npm audit` para identificar pacote, dependência transitiva e advisory associados às 12 vulnerabilidades; avaliar atualizações compatíveis e reexecutar os testes.
 - Validar manualmente os fluxos no navegador e confirmar quais telas ainda usam `localStorage`.
 - Verificar configuração de implantação, logs, cabeçalhos de segurança, backup e estratégia de migração do banco.
 - Fazer revisão de acessibilidade e responsividade da interface.
