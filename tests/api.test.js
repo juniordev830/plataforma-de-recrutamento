@@ -70,6 +70,26 @@ test('registration rejects weak passwords and unsupported roles', async () => {
   assert.equal(invalidRole.status, 400);
 });
 
+test('public registration cannot grant privileged company or recruiter roles', async () => {
+  for (const role of ['company', 'recruiter']) {
+    const response = await request('/api/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Untrusted User',
+        email: `privileged-${role}-${randomUUID()}@example.com`,
+        password: 'strong-password-123',
+        role,
+        companyName: 'Attacker Company'
+      })
+    });
+    assert.equal(response.status, 400);
+  }
+
+  const candidate = await registerCandidate();
+  assert.equal(candidate.user.role, 'candidate');
+  assert.equal(candidate.user.companyName, '');
+});
+
 test('protected endpoints reject missing authentication', async () => {
   const response = await request('/api/applications');
   assert.equal(response.status, 401);
