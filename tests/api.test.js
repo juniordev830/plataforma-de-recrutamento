@@ -9,10 +9,13 @@ const { randomUUID } = require('node:crypto');
 const repoRoot = path.resolve(__dirname, '..');
 const tempDir = fs.mkdtempSync(path.join(repoRoot, '.test-tmp-'));
 fs.copyFileSync(path.join(repoRoot, 'server.js'), path.join(tempDir, 'server.js'));
+fs.copyFileSync(path.join(repoRoot, 'index.html'), path.join(tempDir, 'index.html'));
 fs.symlinkSync(path.join(repoRoot, 'node_modules'), path.join(tempDir, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
 process.env.JWT_SECRET = 'test-only-secret-key-with-at-least-32-characters';
+const testDatabasePath = path.join(os.tmpdir(), `recruitment-test-${randomUUID()}.sqlite`);
+process.env.DATABASE_PATH = testDatabasePath;
 
-// Load a temporary copy so SQLite files are created only inside the disposable test directory.
+// Load a temporary server copy and keep the test database in the OS temp directory.
 const { app, db, initializeDatabase } = require(path.join(tempDir, 'server.js'));
 
 let server;
@@ -32,6 +35,7 @@ after(async () => {
   if (server) await new Promise((resolve) => server.close(resolve));
   await new Promise((resolve, reject) => db.close((error) => error ? reject(error) : resolve()));
   fs.rmSync(tempDir, { recursive: true, force: true });
+  for (const suffix of ['', '-journal', '-wal', '-shm']) fs.rmSync(`${testDatabasePath}${suffix}`, { force: true });
 });
 
 async function request(route, options = {}) {
@@ -195,4 +199,15 @@ test('company accounts cannot submit job applications', async () => {
   });
 
   assert.equal(response.status, 403);
+});
+
+
+test('repository files and SQLite database are not served publicly', async () => {
+  for (const route of ['/database.sqlite', '/server.js', '/package.json', '/.env.example', '/tests/api.test.js']) {
+    const response = await request(route);
+    assert.equal(response.status, 404, `${route} must not be exposed`);
+  }
+  const home = await request('/');
+  assert.equal(home.status, 200);
+  assert.match(await home.text(), /<!doctype html/i);
 });

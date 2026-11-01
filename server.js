@@ -4,6 +4,8 @@ const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
+const os = require('node:os');
+const fs = require('node:fs');
 require('dotenv').config();
 
 const app = express();
@@ -12,7 +14,10 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET || JWT_SECRET.length < 32) {
   throw new Error('JWT_SECRET é obrigatório e deve ter pelo menos 32 caracteres. Configure-o no arquivo .env.');
 }
-const DB_PATH = path.join(__dirname, 'database.sqlite');
+// Keep personal data outside the directory served by Express.
+const DB_DIR = process.env.DATABASE_DIR || path.join(os.homedir(), '.plataforma-de-recrutamento');
+fs.mkdirSync(DB_DIR, { recursive: true, mode: 0o700 });
+const DB_PATH = process.env.DATABASE_PATH || path.join(DB_DIR, 'database.sqlite');
 
 app.disable('x-powered-by');
 app.use(cors({
@@ -165,6 +170,32 @@ function createToken(user) {
   );
 }
 
+// Lightweight in-memory throttle for public authentication endpoints.
+// Use a shared store (for example Redis) when deploying multiple instances.
+const authAttemptBuckets = new Map();
+function authAttemptLimiter(req, res, next) {
+  const now = Date.now();
+  const key = req.ip || req.socket.remoteAddress || 'unknown';
+  let bucket = authAttemptBuckets.get(key);
+  if (!bucket || now - bucket.startedAt >= 15 * 60 * 1000) {
+    bucket = { startedAt: now, count: 0 };
+    authAttemptBuckets.set(key, bucket);
+  }
+  bucket.count += 1;
+  if (bucket.count > 20) {
+    res.set('Retry-After', String(Math.ceil((15 * 60 * 1000 - (now - bucket.startedAt)) / 1000)));
+    return res.status(429).json({ message: 'Muitas tentativas. Tente novamente em alguns minutos.' });
+  }
+  // Bound memory usage by pruning expired buckets and limiting stored keys.
+  if (authAttemptBuckets.size > 10000) {
+    for (const [bucketKey, value] of authAttemptBuckets) {
+      if (now - value.startedAt >= 15 * 60 * 1000) authAttemptBuckets.delete(bucketKey);
+    }
+    if (authAttemptBuckets.size > 10000) authAttemptBuckets.delete(authAttemptBuckets.keys().next().value);
+  }
+  next();
+}
+
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -186,7 +217,7 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, message: 'API funcionando', timestamp: new Date().toISOString() });
 });
 
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', authAttemptLimiter, async (req, res) => {
   try {
     const { name, email, password } = req.body;
     // Public registration must never grant privileged roles. Provision company/recruiter accounts out of band.
@@ -237,7 +268,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', authAttemptLimiter, async (req, res) => {
   try {
     const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
     const password = req.body?.password;
@@ -366,12 +397,13 @@ app.get('/api/applications', authMiddleware, async (req, res) => {
 
 app.use('/api', (req, res) => res.status(404).json({ message: 'Endpoint da API não encontrado.' }));
 
-app.use(express.static(path.join(__dirname, '.')));
-
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api/')) return next();
+// This project currently has a self-contained index.html. Do not mount the
+// repository root as a static directory: it contains source code and config.
+app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
+
+app.use((req, res) => res.status(404).json({ message: 'Recurso não encontrado.' }));
 
 function start() {
   return initializeDatabase().then(() => app.listen(PORT, () => {
