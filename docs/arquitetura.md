@@ -1,131 +1,66 @@
-# Arquitetura do Projeto
+# Arquitetura da Plataforma de Recrutamento
 
-## 1. Visão geral arquitetônica
+## Visão geral
 
-A Plataforma de Recrutamento foi estruturada como uma aplicação web front-end estática, com foco em demonstrar o fluxo operacional de recrutamento e seleção. A arquitetura atual prioriza simplicidade, clareza de código e possibilidade de evolução para um ambiente mais robusto no futuro.
+O repositório contém duas partes que estão em diferentes estágios de integração:
 
-A solução é composta por:
+1. **Frontend estático:** páginas HTML, estilos CSS e interações JavaScript. Alguns fluxos de autenticação, perfil e candidatura ainda usam `localStorage` e são demonstrativos.
+2. **API backend:** serviço Node.js/Express com SQLite, cadastro/login via JWT, publicação de vagas e candidaturas persistidas no banco.
 
-- páginas HTML para navegação;
-- arquivos CSS para apresentação visual;
-- arquivo JavaScript para lógica de interação e filtros;
-- arquivo JSON para dados mockados de vagas;
-- armazenamento local do navegador para persistir perfil, usuários e candidaturas.
+Não presuma que todos os formulários da interface já consomem a API. A integração completa do frontend com o backend é uma das próximas etapas prioritárias.
 
-## 2. Objetivo da arquitetura
+## Componentes
 
-A arquitetura foi pensada para:
+### Frontend
 
-- reduzir dependências externas;
-- acelerar a execução local;
-- facilitar manutenção e entendimento do código;
-- servir como base para evolução em React, componentes reutilizáveis e backend real.
+- Páginas HTML: início, vagas, empresas, candidato, login, cadastro e dashboard.
+- `styles.css`: layout, responsividade e componentes visuais.
+- `script.js`: filtros, renderização e fluxos de demonstração no navegador.
 
-## 3. Camadas da aplicação
+### Backend
 
-### Camada de apresentação
+- `server.js`: rotas Express, autenticação JWT, validação das entradas e operações de banco.
+- `database.sqlite`: banco local criado na inicialização (ignorado pelo Git).
+- `package.json`: dependências e comandos de execução/teste.
+- `.env.example`: exemplo das variáveis de ambiente necessárias.
 
-Responsável pela visualização e navegação das páginas:
+### Testes e automação
 
-- `index.html`
-- `vagas.html`
-- `empresas.html`
-- `candidatos.html`
-- `login.html`
-- `register.html`
-- `dashboard.html`
+- `tests/api.test.js`: testes de integração da API usando um diretório temporário.
+- `.github/workflows/ci.yml`: verifica sintaxe JavaScript e executa a suíte automatizada em pushes e pull requests.
 
-Cada página representa uma visão do sistema e está conectada ao mesmo conjunto de estilos e scripts.
+## Modelo de dados
 
-### Camada de estilo
+- **users:** identidade, e-mail único, hash de senha, papel e nome de empresa.
+- **jobs:** vagas publicadas, empresa, localização, tipo e descrição.
+- **applications:** candidatura associada ao usuário e à vaga, com cópia dos dados de exibição no momento da candidatura.
 
-Arquivo principal:
+A API usa consultas SQL parametrizadas. O nome da empresa vem da conta autenticada e a candidatura usa a identidade do token e a vaga consultada no banco, evitando confiar em campos de identidade enviados pelo cliente.
 
-- `styles.css`
+## Fluxo de autenticação
 
-Esse arquivo centraliza a identidade visual, espaçamento, grid responsiva, botões, cards e estrutura visual da interface.
+1. O usuário envia os dados para `POST /api/register` ou `POST /api/login`.
+2. A senha é armazenada como hash bcrypt; a senha original não é retornada.
+3. A API emite JWT com expiração.
+4. O cliente envia o token no cabeçalho `Authorization: Bearer <token>` para rotas protegidas.
+5. A API valida o token e aplica a regra de papel para a operação solicitada.
 
-### Camada de interação
+## Persistência
 
-Arquivo principal:
+SQLite é utilizado para desenvolvimento local e demonstração. Antes de uma implantação com múltiplos processos ou alta disponibilidade, devem ser avaliados um banco gerenciado, migrações, backups e uma estratégia explícita de concorrência.
 
-- `script.js`
+## Limitações atuais
 
-A lógica de interação inclui:
+- A integração frontend/API não está completa.
+- Não há fluxo de recuperação ou verificação de e-mail.
+- Ainda faltam rate limiting, observabilidade estruturada e documentação OpenAPI.
+- A aplicação necessita de revisão de segurança e testes de implantação antes de uso em produção.
 
-- renderização de vagas;
-- filtros dinâmicos por texto, tipo e localização;
-- autenticação simulada e cadastro por perfil;
-- função de candidatura simulada;
-- persistência de usuários, perfil e candidaturas em `localStorage`;
-- carregamento de dados mockados.
+## Comandos de desenvolvimento
 
-### Camada de dados
-
-Arquivo principal:
-
-- `jobs.json`
-
-Esse arquivo contém as vagas de exemplo, simulando um banco de dados inicial para o protótipo.
-
-## 4. Fluxos do sistema
-
-### Fluxo candidato
-
-1. Usuário acessa a página inicial;
-2. Navega até a seção de vagas;
-3. Aplica filtros para encontrar oportunidades relevantes;
-4. Clica em "Candidatar-se";
-5. O sistema valida a autenticação;
-6. A candidatura é salva localmente no navegador.
-
-### Fluxo cadastro e login
-
-1. Usuário acessa `register.html`;
-2. Cria conta com papel definido;
-3. O sistema salva o usuário em `localStorage`;
-4. Usuário entra em `login.html`;
-5. O sistema autentica e redireciona para `dashboard.html`.
-
-### Fluxo dashboard
-
-1. Usuário autenticado acessa o painel;
-2. O conteúdo muda conforme papel:
-   - candidato: perfil e candidaturas;
-   - empresa: dados da empresa e ação simulada de publicar vaga;
-   - recrutador: painel equivalente com foco em processos e vagas.
-
-## 5. Persistência atual
-
-No estado atual do protótipo, a persistência é feita por `localStorage`, o que permite:
-
-- manter perfil do usuário;
-- manter usuários cadastrados;
-- manter histórico de candidaturas.
-
-Essa solução é adequada para protótipos, porém não deve ser usada como armazenamento definitivo em produção por falta de segurança e escalabilidade.
-
-## 6. Pontos de melhoria arquitetural
-
-### Futuras evoluções recomendadas
-
-- migração para React ou Vue;
-- estrutura modular por componentes;
-- uso de API REST ou GraphQL;
-- banco de dados relacional ou NoSQL;
-- autenticação e autorização;
-- painel administrativo para empresas;
-- upload de currículos e documentos;
-- processamento assíncrono de eventos e notificações.
-
-## 7. Princípios adotados
-
-- Simplicidade na execução local;
-- separação de responsabilidades;
-- fácil entendimento por desenvolvedores iniciantes;
-- escalabilidade incremental;
-- base sólida para evolução para arquitetura profissional de produção.
-
-## 8. Considerações finais
-
-A arquitetura implementada hoje atende ao objetivo de demonstrar uma plataforma de recrutamento funcional em nível de interface, com foco em experiência do usuário e velocidade de desenvolvimento. Ela serve como base tecnológica para o próximo estágio, que deve incluir backend, autenticação, dados persistentes e melhores mecanismos de segurança.
+```bash
+npm install
+npm start
+npm test
+node --check server.js
+```
