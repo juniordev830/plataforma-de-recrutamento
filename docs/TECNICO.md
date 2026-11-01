@@ -1,55 +1,111 @@
-# Documentação Técnica
+# Documentação Técnica — Plataforma de Recrutamento
 
-Este documento descreve a arquitetura e os detalhes da API implementada no backend (Node.js + Express + SQLite).
+## Arquitetura atual
 
-## Arquitetura
+- **Runtime:** Node.js 18+
+- **HTTP:** Express
+- **Banco:** SQLite por meio de `sqlite3`
+- **Autenticação:** JWT com expiração, emissor e audiência
+- **Senhas:** hash com `bcryptjs`
+- **Frontend:** HTML, CSS e JavaScript; parte dos fluxos ainda é simulada com `localStorage`
+- **Testes:** `node:test`, executados com `npm test`
 
-- Backend: Node.js + Express
-- Banco: SQLite (arquivo local `database.sqlite`)
-- Autenticação: JWT
-- Hash de senhas: bcryptjs
-- Rotas servidas em `/api/*`
-- O servidor também serve arquivos estáticos do frontend (index.html, páginas do protótipo)
+O backend e o frontend compartilham o mesmo servidor Express. A aplicação ainda é um projeto de portfólio e requer validação adicional antes de exposição pública ou uso em produção.
 
-## Variáveis de ambiente
+## Configuração
 
-- PORT: porta onde o servidor roda (padrão 3001)
-- JWT_SECRET: chave secreta para assinatura dos tokens JWT (substitua a chave de exemplo)
+Copie `.env.example` para `.env` e defina:
+
+- `PORT`: porta HTTP (padrão `3001`).
+- `JWT_SECRET`: segredo aleatório com pelo menos 32 caracteres; a aplicação não inicia sem esse valor.
+- `CORS_ORIGIN`: lista separada por vírgulas de origens confiáveis que podem acessar a API via navegador.
+
+Nunca versione o arquivo `.env` real. Se uma chave for exposta, substitua-a imediatamente.
+
+## Inicialização
+
+```bash
+npm install
+npm start
+```
+
+Desenvolvimento com reinicialização automática:
+
+```bash
+npm run dev
+```
 
 ## Endpoints
 
-- GET /api/health
-  - Retorno: { ok: true, message, timestamp }
+### `GET /api/health`
 
-- POST /api/register
-  - Body: { name, email, password, role = 'candidate' | 'company' | 'recruiter', companyName? }
-  - Retorno: { token, user }
+Verificação simples da disponibilidade da API.
 
-- POST /api/login
-  - Body: { email, password }
-  - Retorno: { token, user }
+### `POST /api/register`
 
-- GET /api/jobs
-  - Retorno: lista de vagas
+Exemplo de corpo:
 
-- POST /api/jobs
-  - Auth: Bearer token (usuário com role 'company' ou 'recruiter')
-  - Body: { title, company, location, type, typeLabel, description, short? }
-  - Retorno: vaga criada
+```json
+{
+  "name": "Maria Silva",
+  "email": "maria@example.com",
+  "password": "uma-senha-com-8-ou-mais-caracteres",
+  "role": "candidate"
+}
+```
 
-- POST /api/applications
-  - Auth: Bearer token (usuário role 'candidate')
-  - Body: { jobId, jobTitle, company, name, email }
-  - Retorno: candidatura criada
+Papéis permitidos: `candidate`, `company` e `recruiter`. Para contas `company` e `recruiter`, informe também `companyName`. A senha deve ter de 8 a 128 caracteres. Retorna token e dados públicos do usuário.
 
-- GET /api/applications
-  - Auth: Bearer token (candidate)
-  - Retorno: candidaturas do usuário
+### `POST /api/login`
 
-## Observações e próximos passos
+Recebe `email` e `password`; retorna um JWT e os dados públicos do usuário. Tokens expiram em duas horas.
 
-- Em produção, trocar SQLite por PostgreSQL ou outro banco gerenciado.
-- Armazenar `JWT_SECRET` e outras variáveis seguras no provedor (Render, Railway, Vercel env vars).
-- Implementar rotas administrativas para empresas verem candidaturas por vaga.
-- Validar entradas com bibliotecas como Joi ou express-validator.
+### `GET /api/jobs`
 
+Lista as vagas disponíveis.
+
+### `POST /api/jobs`
+
+Requer `Authorization: Bearer <token>` de uma conta `company` ou `recruiter`. Recebe `title`, `location`, `type`, `description` e, opcionalmente, `typeLabel` e `short`. O nome da empresa vem da conta autenticada, não do corpo enviado pelo cliente.
+
+Tipos de vaga aceitos: `fulltime`, `parttime`, `contract`, `internship` e `temporary`.
+
+### `POST /api/applications`
+
+Requer token de `candidate`. O corpo deve conter somente `jobId`; o servidor obtém nome, e-mail e detalhes da vaga a partir dos dados autenticados e do banco.
+
+### `GET /api/applications`
+
+Requer token de `candidate` e retorna apenas as candidaturas do próprio usuário.
+
+Rotas inexistentes sob `/api` retornam JSON 404.
+
+## Testes
+
+```bash
+npm test
+node --check server.js
+```
+
+A suíte cobre health check, validação de cadastro, bloqueio de acesso sem autenticação, restrição de papéis, integridade dos dados de candidatura e rotas inexistentes. O workflow do GitHub Actions executa verificações em pushes e pull requests.
+
+## Controles implementados
+
+- Segredo JWT obrigatório com comprimento mínimo.
+- Expiração de token e validação de emissor/audiência.
+- Hash de senhas e validação básica de entrada.
+- Limite de 1 MB para corpos HTTP.
+- CORS configurável por lista de origens.
+- Verificação de papel para operações protegidas.
+- Candidaturas associadas à identidade autenticada e a vagas existentes.
+- Índice único para impedir candidatura duplicada à mesma vaga.
+
+## Limitações e próximos passos
+
+- Integrar cadastro, login e candidatura do frontend com a API; há fluxos que ainda usam `localStorage`.
+- Melhorar a resposta HTTP para conflitos de unicidade em todos os cenários.
+- Implementar rate limiting, recuperação de senha e verificação de e-mail.
+- Documentar schemas formais com OpenAPI/Swagger.
+- Criar migrações versionadas para o banco de dados.
+- Adicionar painel para recrutadores com isolamento por empresa.
+- Revisar autenticação, autorização, logs, backups e configuração de produção antes de publicar o serviço.
