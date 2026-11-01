@@ -292,6 +292,9 @@ app.post('/api/jobs', authMiddleware, async (req, res) => {
     const short = typeof req.body?.short === 'string' && req.body.short.trim() ? req.body.short.trim() : description.slice(0, 120);
     const company = typeof user.companyName === 'string' ? user.companyName.trim() : '';
 
+    if (!['company', 'recruiter'].includes(user.role)) {
+      return res.status(403).json({ message: 'Apenas empresas e recrutadores podem publicar vagas.' });
+    }
     if (!company) return res.status(400).json({ message: 'O cadastro da empresa precisa ser atualizado antes de publicar vagas.' });
     if (!title || title.length > 160 || !location || location.length > 160 ||
         !['fulltime', 'parttime', 'contract', 'internship', 'temporary'].includes(type) ||
