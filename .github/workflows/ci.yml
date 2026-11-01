@@ -21,6 +21,10 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm install
+      - name: Audit dependency vulnerabilities
+        run: |
+          npm audit --json > npm-audit-report.json || true
+          node -e 'const r = require("./npm-audit-report.json"); console.log("Resumo npm audit:", JSON.stringify(r.metadata?.vulnerabilities ?? {}, null, 2)); for (const [name, v] of Object.entries(r.vulnerabilities ?? {})) { console.log("\\n" + name + " [" + v.severity + "]" + (v.isDirect ? " (direct)" : " (transitive)")); for (const item of v.via ?? []) { if (typeof item === "object") console.log(" - " + item.title + " | " + (item.url ?? "") + " | range: " + (item.range ?? "")); } console.log(" - Correção disponível: " + JSON.stringify(v.fixAvailable)); }'
       - name: Check JavaScript syntax
         run: node --check server.js
       - name: Run automated tests
