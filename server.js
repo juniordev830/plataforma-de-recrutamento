@@ -397,19 +397,8 @@ app.get('/api/applications', authMiddleware, async (req, res) => {
 
 app.use('/api', (req, res) => res.status(404).json({ message: 'Endpoint da API não encontrado.' }));
 
-// Only expose known frontend assets. Never publish arbitrary project files,
-// configuration, test data, or database files through express.static.
-app.use(express.static(path.join(__dirname, '.'), {
-  dotfiles: 'deny',
-  index: false,
-  setHeaders(res, filePath) {
-    if (/\\.(?:sqlite|db|env|log)$/i.test(filePath) || /(?:^|[\\/])(?:tests?|docs?|node_modules)(?:[\\/]|$)/i.test(filePath)) {
-      res.statusCode = 404;
-    }
-  },
-  fallthrough: true,
-}));
-
+// This project currently has a self-contained index.html. Do not mount the
+// repository root as a static directory: it contains source code and config.
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
   res.sendFile(path.join(__dirname, 'index.html'));
