@@ -9,12 +9,13 @@ const { randomUUID } = require('node:crypto');
 const repoRoot = path.resolve(__dirname, '..');
 const tempDir = fs.mkdtempSync(path.join(repoRoot, '.test-tmp-'));
 fs.copyFileSync(path.join(repoRoot, 'server.js'), path.join(tempDir, 'server.js'));
+fs.copyFileSync(path.join(repoRoot, 'index.html'), path.join(tempDir, 'index.html'));
 fs.symlinkSync(path.join(repoRoot, 'node_modules'), path.join(tempDir, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
 process.env.JWT_SECRET = 'test-only-secret-key-with-at-least-32-characters';
 const testDatabasePath = path.join(os.tmpdir(), `recruitment-test-${randomUUID()}.sqlite`);
 process.env.DATABASE_PATH = testDatabasePath;
 
-// Load a temporary copy so SQLite files are created only inside the disposable test directory.
+// Load a temporary server copy and keep the test database in the OS temp directory.
 const { app, db, initializeDatabase } = require(path.join(tempDir, 'server.js'));
 
 let server;
