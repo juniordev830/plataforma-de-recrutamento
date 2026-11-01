@@ -134,3 +134,26 @@ test('unknown API routes return JSON 404', async () => {
   assert.equal(response.status, 404);
   assert.equal(response.headers.get('content-type')?.includes('application/json'), true);
 });
+
+
+test('login accepts a valid registered email and password', async () => {
+  const candidate = await registerCandidate();
+  const response = await request('/api/login', {
+    method: 'POST',
+    body: JSON.stringify({ email: candidate.user.email, password: 'strong-password-123' })
+  });
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.user.email, candidate.user.email);
+  assert.equal(typeof payload.token, 'string');
+});
+
+test('login rejects malformed email addresses before authentication', async () => {
+  const response = await request('/api/login', {
+    method: 'POST',
+    body: JSON.stringify({ email: 'not-an-email', password: 'any-password' })
+  });
+
+  assert.equal(response.status, 400);
+});
