@@ -331,7 +331,7 @@ app.post('/api/applications', authMiddleware, async (req, res) => {
     const created = await get('SELECT * FROM applications WHERE id = ?', [result.id]);
     return res.status(201).json(created);
   } catch (error) {
-    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    if (error.code === 'SQLITE_CONSTRAINT' && /UNIQUE constraint failed/.test(error.message)) {
       return res.status(409).json({ message: 'Você já se candidatou a esta vaga.' });
     }
     console.error('Erro ao salvar candidatura:', error.message);
