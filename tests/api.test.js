@@ -143,7 +143,8 @@ test('applications use the authenticated identity and actual job data; duplicate
     headers: { authorization: `Bearer ${candidate.token}` },
     body: JSON.stringify({ jobId: job.id })
   });
-  assert.notEqual(duplicate.status, 201, 'a duplicate application must not be accepted');
+  assert.equal(duplicate.status, 409, 'a duplicate application must return HTTP 409 Conflict');
+  assert.equal((await duplicate.json()).message, 'Você já se candidatou a esta vaga.');
   const listed = await request('/api/applications', {
     headers: { authorization: `Bearer ${candidate.token}` }
   });
