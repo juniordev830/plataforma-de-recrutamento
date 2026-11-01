@@ -192,7 +192,7 @@ app.post('/api/register', async (req, res) => {
 
     const normalizedName = typeof name === 'string' ? name.trim() : '';
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-    const validEmail = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalizedEmail) && normalizedEmail.length <= 254;
+    const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) && normalizedEmail.length <= 254;
     if (!normalizedName || normalizedName.length > 120 || !validEmail || typeof password !== 'string' || password.length < 8 || password.length > 128) {
       return res.status(400).json({ message: 'Informe nome (até 120 caracteres), e-mail válido e senha entre 8 e 128 caracteres.' });
     }
