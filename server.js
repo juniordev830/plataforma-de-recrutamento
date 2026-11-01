@@ -399,10 +399,11 @@ app.use('/api', (req, res) => res.status(404).json({ message: 'Endpoint da API n
 
 // This project currently has a self-contained index.html. Do not mount the
 // repository root as a static directory: it contains source code and config.
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api/')) return next();
+app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
+
+app.use((req, res) => res.status(404).json({ message: 'Recurso não encontrado.' }));
 
 function start() {
   return initializeDatabase().then(() => app.listen(PORT, () => {
