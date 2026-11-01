@@ -174,7 +174,7 @@ function authMiddleware(req, res, next) {
   const token = authHeader.replace('Bearer ', '');
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET, { issuer: 'plataforma-de-recrutamento', audience: 'recruitment-api' });
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'], issuer: 'plataforma-de-recrutamento', audience: 'recruitment-api' });
     req.user = decoded;
     next();
   } catch (error) {
