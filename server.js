@@ -188,7 +188,12 @@ app.get('/api/health', (req, res) => {
 
 app.post('/api/register', async (req, res) => {
   try {
-    const { name, email, password, role = 'candidate', companyName = '' } = req.body;
+    const { name, email, password } = req.body;
+    // Public registration must never grant privileged roles. Provision company/recruiter accounts out of band.
+    if (req.body?.role !== undefined && req.body.role !== 'candidate') {
+      return res.status(400).json({ message: 'Tipo de conta não permitido no cadastro público.' });
+    }
+    const role = 'candidate';
 
     const normalizedName = typeof name === 'string' ? name.trim() : '';
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
@@ -199,10 +204,7 @@ app.post('/api/register', async (req, res) => {
     if (!['candidate', 'company', 'recruiter'].includes(role)) {
       return res.status(400).json({ message: 'Tipo de conta inválido.' });
     }
-    const normalizedCompanyName = typeof companyName === 'string' ? companyName.trim() : '';
-    if (['company', 'recruiter'].includes(role) && !normalizedCompanyName) {
-      return res.status(400).json({ message: 'Informe o nome da empresa para este tipo de conta.' });
-    }
+    const normalizedCompanyName = '';
 
     const existingUser = await get('SELECT id FROM users WHERE email = ?', [normalizedEmail]);
     if (existingUser) {
