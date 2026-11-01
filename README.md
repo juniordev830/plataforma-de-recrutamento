@@ -106,6 +106,10 @@ tests/api.test.js      # Testes da API
 .github/workflows/ci.yml # Verificações automáticas
 ```
 
+## Auditoria técnica
+
+Consulte [`docs/AUDITORIA_E_PLANO_DE_MELHORIAS.md`](docs/AUDITORIA_E_PLANO_DE_MELHORIAS.md) para os achados iniciais, prioridades e verificações pendentes. A auditoria é estática; não considere os testes como aprovados até executá-los.
+
 ## Próximas melhorias
 
 - Integrar as telas de cadastro/login/candidatura com a API (hoje alguns fluxos ainda usam `localStorage`).
