@@ -1,5 +1,6 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const jwt = require('jsonwebtoken');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -176,4 +177,22 @@ test('login rejects malformed email addresses before authentication', async () =
   });
 
   assert.equal(response.status, 400);
+});
+
+
+
+test('company accounts cannot submit job applications', async () => {
+  const token = jwt.sign(
+    { id: 999, email: 'company@example.com', role: 'company', name: 'Company' },
+    process.env.JWT_SECRET,
+    { expiresIn: '1h', issuer: 'plataforma-de-recrutamento', audience: 'recruitment-api' }
+  );
+
+  const response = await request('/api/applications', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}` },
+    body: JSON.stringify({ jobId: 1 })
+  });
+
+  assert.equal(response.status, 403);
 });
