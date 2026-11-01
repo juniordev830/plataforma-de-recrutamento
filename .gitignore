@@ -4,3 +4,4 @@ database.sqlite
 .env
 npm-debug.log*
 .DS_Store
+.test-tmp-*/
