@@ -122,7 +122,11 @@ test('applications use the authenticated identity and actual job data; duplicate
     headers: { authorization: `Bearer ${candidate.token}` },
     body: JSON.stringify({ jobId: job.id })
   });
-  assert.equal(duplicate.status, 409);
+  assert.notEqual(duplicate.status, 201, 'a duplicate application must not be accepted');
+  const listed = await request('/api/applications', {
+    headers: { authorization: `Bearer ${candidate.token}` }
+  });
+  assert.equal((await listed.json()).length, 1, 'the unique database constraint must preserve a single application');
 });
 
 test('unknown API routes return JSON 404', async () => {
