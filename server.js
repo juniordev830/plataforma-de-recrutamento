@@ -241,7 +241,7 @@ app.post('/api/login', async (req, res) => {
   try {
     const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
     const password = req.body?.password;
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || typeof password !== 'string' || !password) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || typeof password !== 'string' || !password) {
       return res.status(400).json({ message: 'Informe um e-mail válido e a senha.' });
     }
 
