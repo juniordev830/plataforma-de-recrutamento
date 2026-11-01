@@ -8,12 +8,23 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-me';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET é obrigatório e deve ter pelo menos 32 caracteres. Configure-o no arquivo .env.');
+}
 const DB_PATH = path.join(__dirname, 'database.sqlite');
 
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.disable('x-powered-by');
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    const allowed = (process.env.CORS_ORIGIN || 'http://localhost:3001,http://127.0.0.1:3001,http://localhost:5173,http://127.0.0.1:5173')
+      .split(',').map((value) => value.trim()).filter(Boolean);
+    return callback(null, allowed.includes(origin));
+  }
+}));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 const db = new sqlite3.Database(DB_PATH, (err) => {
   if (err) {
@@ -92,6 +103,9 @@ async function initializeDatabase() {
     )
   `);
 
+  await run('CREATE INDEX IF NOT EXISTS idx_applications_user_id ON applications(userId)');
+  await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_applications_user_job ON applications(userId, jobId)');
+
   const jobsCount = await get('SELECT COUNT(*) as count FROM jobs');
   if ((jobsCount?.count || 0) === 0) {
     const defaultJobs = [
@@ -145,15 +159,9 @@ async function initializeDatabase() {
 
 function createToken(user) {
   return jwt.sign(
-    {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      name: user.name,
-      companyName: user.companyName || ''
-    },
+    { id: user.id, email: user.email, role: user.role, name: user.name, companyName: user.companyName || '' },
     JWT_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '2h', issuer: 'plataforma-de-recrutamento', audience: 'recruitment-api' }
   );
 }
 
@@ -166,7 +174,7 @@ function authMiddleware(req, res, next) {
   const token = authHeader.replace('Bearer ', '');
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET, { issuer: 'plataforma-de-recrutamento', audience: 'recruitment-api' });
     req.user = decoded;
     next();
   } catch (error) {
@@ -182,20 +190,30 @@ app.post('/api/register', async (req, res) => {
   try {
     const { name, email, password, role = 'candidate', companyName = '' } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Nome, e-mail e senha são obrigatórios.' });
+    const normalizedName = typeof name === 'string' ? name.trim() : '';
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const validEmail = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalizedEmail) && normalizedEmail.length <= 254;
+    if (!normalizedName || normalizedName.length > 120 || !validEmail || typeof password !== 'string' || password.length < 8 || password.length > 128) {
+      return res.status(400).json({ message: 'Informe nome (até 120 caracteres), e-mail válido e senha entre 8 e 128 caracteres.' });
+    }
+    if (!['candidate', 'company', 'recruiter'].includes(role)) {
+      return res.status(400).json({ message: 'Tipo de conta inválido.' });
+    }
+    const normalizedCompanyName = typeof companyName === 'string' ? companyName.trim() : '';
+    if (['company', 'recruiter'].includes(role) && !normalizedCompanyName) {
+      return res.status(400).json({ message: 'Informe o nome da empresa para este tipo de conta.' });
     }
 
-    const existingUser = await get('SELECT id FROM users WHERE email = ?', [email.trim().toLowerCase()]);
+    const existingUser = await get('SELECT id FROM users WHERE email = ?', [normalizedEmail]);
     if (existingUser) {
       return res.status(409).json({ message: 'E-mail já cadastrado.' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
     const userInsert = await run(
       `INSERT INTO users (name, email, password, role, companyName)
        VALUES (?, ?, ?, ?, ?)`,
-      [name.trim(), email.trim().toLowerCase(), hashedPassword, role, companyName.trim()]
+      [normalizedName, normalizedEmail, hashedPassword, role, normalizedCompanyName]
     );
 
     const user = await get('SELECT id, name, email, role, companyName FROM users WHERE id = ?', [userInsert.id]);
@@ -219,13 +237,13 @@ app.post('/api/register', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ message: 'E-mail e senha são obrigatórios.' });
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    const password = req.body?.password;
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || typeof password !== 'string' || !password) {
+      return res.status(400).json({ message: 'Informe um e-mail válido e a senha.' });
     }
 
-    const user = await get('SELECT * FROM users WHERE email = ?', [email.trim().toLowerCase()]);
+    const user = await get('SELECT * FROM users WHERE email = ?', [email]);
     if (!user) {
       return res.status(401).json({ message: 'Credenciais inválidas.' });
     }
@@ -265,21 +283,26 @@ app.get('/api/jobs', async (req, res) => {
 
 app.post('/api/jobs', authMiddleware, async (req, res) => {
   try {
-    const { title, company, location, type, typeLabel, description, short } = req.body;
     const user = req.user;
+    const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+    const location = typeof req.body?.location === 'string' ? req.body.location.trim() : '';
+    const type = typeof req.body?.type === 'string' ? req.body.type.trim() : '';
+    const typeLabel = typeof req.body?.typeLabel === 'string' ? req.body.typeLabel.trim() : type;
+    const description = typeof req.body?.description === 'string' ? req.body.description.trim() : '';
+    const short = typeof req.body?.short === 'string' && req.body.short.trim() ? req.body.short.trim() : description.slice(0, 120);
+    const company = typeof user.companyName === 'string' ? user.companyName.trim() : '';
 
-    if (!['company', 'recruiter'].includes(user.role)) {
-      return res.status(403).json({ message: 'Apenas empresas e recrutadores podem criar vagas.' });
-    }
-
-    if (!title || !company || !location || !type || !description) {
-      return res.status(400).json({ message: 'Preencha todos os campos da vaga.' });
+    if (!company) return res.status(400).json({ message: 'O cadastro da empresa precisa ser atualizado antes de publicar vagas.' });
+    if (!title || title.length > 160 || !location || location.length > 160 ||
+        !['fulltime', 'parttime', 'contract', 'internship', 'temporary'].includes(type) ||
+        !description || description.length > 10000 || typeLabel.length > 80 || short.length > 300) {
+      return res.status(400).json({ message: 'Dados da vaga inválidos ou incompletos.' });
     }
 
     const result = await run(
       `INSERT INTO jobs (title, company, location, type, typeLabel, description, short)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [title, company, location, type, typeLabel || type, description, short || description.slice(0, 120)]
+      [title, company, location, type, typeLabel || type, description, short]
     );
 
     const created = await get('SELECT * FROM jobs WHERE id = ?', [result.id]);
@@ -292,28 +315,27 @@ app.post('/api/jobs', authMiddleware, async (req, res) => {
 
 app.post('/api/applications', authMiddleware, async (req, res) => {
   try {
-    const { jobId, jobTitle, company, name, email } = req.body;
-    const user = req.user;
-
-    if (user.role !== 'candidate') {
-      return res.status(403).json({ message: 'Apenas candidatos podem se candidatar.' });
+    const jobId = Number(req.body?.jobId);
+    if (!Number.isSafeInteger(jobId) || jobId <= 0) {
+      return res.status(400).json({ message: 'Informe uma vaga válida.' });
     }
-
-    if (!jobId || !jobTitle || !company || !name || !email) {
-      return res.status(400).json({ message: 'Dados da candidatura incompletos.' });
-    }
+    const job = await get('SELECT id, title, company FROM jobs WHERE id = ?', [jobId]);
+    if (!job) return res.status(404).json({ message: 'Vaga não encontrada.' });
 
     const result = await run(
       `INSERT INTO applications (userId, jobId, jobTitle, company, name, email)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [user.id, jobId, jobTitle, company, name, email]
+      [req.user.id, job.id, job.title, job.company, req.user.name, req.user.email]
     );
 
     const created = await get('SELECT * FROM applications WHERE id = ?', [result.id]);
     return res.status(201).json(created);
   } catch (error) {
-    console.error('Erro ao salvar candidatura:', error);
-    return res.status(500).json({ message: 'Erro ao salvar candidatura.' });
+    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return res.status(409).json({ message: 'Você já se candidatou a esta vaga.' });
+    }
+    console.error('Erro ao salvar candidatura:', error.message);
+    return res.status(500).json({ message: 'Não foi possível registrar a candidatura.' });
   }
 });
 
@@ -333,6 +355,8 @@ app.get('/api/applications', authMiddleware, async (req, res) => {
   }
 });
 
+app.use('/api', (req, res) => res.status(404).json({ message: 'Endpoint da API não encontrado.' }));
+
 app.use(express.static(path.join(__dirname, '.')));
 
 app.get('*', (req, res, next) => {
@@ -340,13 +364,17 @@ app.get('*', (req, res, next) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-initializeDatabase()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Servidor iniciado em http://localhost:${PORT}`);
-    });
-  })
-  .catch((error) => {
-    console.error('Erro na inicialização do banco:', error);
-    process.exit(1);
+function start() {
+  return initializeDatabase().then(() => app.listen(PORT, () => {
+    console.log(`Servidor iniciado em http://localhost:${PORT}`);
+  }));
+}
+
+if (require.main === module) {
+  start().catch((error) => {
+    console.error('Erro na inicialização do banco:', error.message);
+    process.exitCode = 1;
   });
+}
+
+module.exports = { app, db, initializeDatabase, start };
