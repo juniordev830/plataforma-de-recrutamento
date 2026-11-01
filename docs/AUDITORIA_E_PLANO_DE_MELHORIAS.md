@@ -1,6 +1,6 @@
 # Auditoria inicial e plano de melhorias
 
-Este documento separa achados confirmados pela leitura do código de itens que ainda precisam ser executados e verificados. A auditoria inicial foi feita por inspeção estática. Em 1º de novembro de 2026, o GitHub Actions executou a instalação de dependências, `node --check server.js` e `npm test` na revisão do PR #5: os 10 testes passaram, sem falhas. A instalação reportou 12 vulnerabilidades (2 baixas, 5 moderadas, 4 altas e 1 crítica). Os nomes dos pacotes e avisos específicos ainda precisam ser extraídos de um relatório de auditoria completo; não atualizar dependências às cegas.
+Este documento separa achados confirmados pela leitura do código de itens que ainda precisam ser executados e verificados. A auditoria inicial foi feita por inspeção estática. Em 1º de novembro de 2026, o GitHub Actions executou a instalação de dependências, `node --check server.js` e `npm test` na revisão do PR #5: os 10 testes passaram, sem falhas. A instalação reportou 12 vulnerabilidades (2 baixas, 5 moderadas, 4 altas e 1 crítica). Os pacotes e os principais avisos foram extraídos do relatório do GitHub Actions; não atualizar dependências às cegas.
 
 ## Resultado detalhado do npm audit
 
@@ -8,8 +8,8 @@ A execução do GitHub Actions em 1º de novembro de 2026 confirmou 12 vulnerabi
 
 | Pacote | Tipo | Gravidade reportada | Observação |
 |---|---|---|---|
-| `sqlite3` | Dependência direta | Alta | O npm sugere `sqlite3@6.0.1), uma atualização major; exige avaliar compatibilidade e mudanças de API. |
-| `nodemon` | Dependência direta de desenvolvimento | Moderada | O npm sugere `nodemon@1.0.2) como caminho de correção, também major em relação à versão instalada; verificar a sugestão com cuidado. |
+| `sqlite3` | Dependência direta | Alta | O npm sugere `sqlite3@6.0.1`, uma atualização major; exige avaliar compatibilidade e mudanças de API. |
+| `nodemon` | Dependência direta de desenvolvimento | Moderada | O npm sugere `nodemon@1.0.2` como caminho de correção, também major em relação à versão instalada; verificar a sugestão com cuidado. |
 | `tar` | Transitiva | Crítica | Foram listados vários avisos relacionados a extração de arquivos e caminhos; entra como prioridade de investigação. |
 | `cacache`, `make-fetch-happen`, `node-gyp` | Transitivas | Alta | Associadas à árvore de dependências de instalação/build. |
 | `@npmcli/move-file`, `glob`, `minimatch`, `rimraf` | Transitivas | Moderada | Pacotes antigos ou com avisos de segurança; corrigir via dependências-pai quando possível. |
