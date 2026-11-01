@@ -320,6 +320,10 @@ app.post('/api/jobs', authMiddleware, async (req, res) => {
 
 app.post('/api/applications', authMiddleware, async (req, res) => {
   try {
+    if (req.user.role !== 'candidate') {
+      return res.status(403).json({ message: 'Apenas candidatos podem se candidatar a vagas.' });
+    }
+
     const jobId = Number(req.body?.jobId);
     if (!Number.isSafeInteger(jobId) || jobId <= 0) {
       return res.status(400).json({ message: 'Informe uma vaga válida.' });
