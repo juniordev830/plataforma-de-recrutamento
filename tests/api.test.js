@@ -16,7 +16,7 @@ const testDatabasePath = path.join(os.tmpdir(), `recruitment-test-${randomUUID()
 process.env.DATABASE_PATH = testDatabasePath;
 
 // Load a temporary server copy and keep the test database in the OS temp directory.
-const { app, db, initializeDatabase } = require(path.join(tempDir, 'server.js'));
+const { app, db, initializeDatabase, provisionCompany } = require(path.join(tempDir, 'server.js'));
 
 let server;
 let baseUrl;
@@ -230,4 +230,17 @@ test('repository files and SQLite database are not served publicly', async () =>
   const home = await request('/');
   assert.equal(home.status, 200);
   assert.match(await home.text(), /<!doctype html/i);
+});
+
+test('operator can provision an existing company account', async () => {
+  const email = 'operator-company@example.com';
+  const response = await request('/api/register', {method: 'POST', body: JSON.stringify({name: 'Company', email, password: 'strong-password-123'})});
+  assert.equal(response.status, 201);
+  await provisionCompany(email, 'Empresa Teste');
+  const login = await request('/api/login', {method: 'POST', body: JSON.stringify({email, password: 'strong-password-123'})});
+  const session = await login.json();
+  assert.equal(session.user.role, 'company');
+  const job = await request('/api/jobs', {method: 'POST', headers: {Authorization: 'Bearer ' + session.token}, body: JSON.stringify({title: 'Vaga teste', location: 'Remoto', type: 'fulltime', description: 'Descrição da vaga'})});
+  assert.equal(job.status, 201);
+  await assert.rejects(() => provisionCompany('missing@example.com', 'Empresa'));
 });
