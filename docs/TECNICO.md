@@ -55,7 +55,7 @@ Exemplo de corpo:
 }
 ```
 
-O cadastro público cria exclusivamente contas `candidate`. Se o campo `role` for enviado, seu único valor aceito é `candidate`; tentativas de criar contas `company` ou `recruiter` são rejeitadas com HTTP 400. O endpoint não aceita nem define `companyName`. Contas privilegiadas ainda precisam de um fluxo administrativo de provisionamento, que não está implementado. A senha deve ter de 8 a 128 caracteres. Retorna token e dados públicos do usuário.
+O cadastro público cria exclusivamente contas `candidate`. Se o campo `role` for enviado, seu único valor aceito é `candidate`; tentativas de criar contas `company` ou `recruiter` são rejeitadas com HTTP 400. O endpoint não aceita nem define `companyName`. Contas empresariais são provisionadas pelo operador no servidor com `node server.js --provision-company email@empresa.com "Empresa"`; consulte `docs/PROVISIONAMENTO.md`. Faça login novamente após a promoção. A senha deve ter de 8 a 128 caracteres. Retorna token e dados públicos do usuário.
 
 ### `POST /api/login`
 
@@ -71,7 +71,7 @@ Requer `Authorization: Bearer <token>` de uma conta `company` ou `recruiter`. Re
 
 Tipos de vaga aceitos: `fulltime`, `parttime`, `contract`, `internship` e `temporary`.
 
-**Limitação atual:** como o cadastro público só cria candidatos e ainda não existe provisionamento administrativo, uma conta empresarial não pode ser criada pelo fluxo público normal.
+O cadastro público não concede privilégios. O operador deve provisionar uma conta existente pelo comando administrativo documentado em `docs/PROVISIONAMENTO.md`.
 
 ### `POST /api/applications`
 
@@ -112,7 +112,7 @@ O limitador em memória não compartilha estado entre instâncias e não substit
 ## Limitações e próximos passos
 
 - Integrar cadastro, login e candidatura do frontend com a API; há fluxos que ainda usam `localStorage`.
-- Implementar provisionamento administrativo seguro de contas empresariais/recrutadores, sem liberar papéis privilegiados no cadastro público.
+- Evoluir o provisionamento administrativo por CLI para gestão auditável de empresas, mantendo papéis privilegiados fora do cadastro público.
 - Adicionar recuperação de senha e verificação de e-mail.
 - Documentar schemas formais com OpenAPI/Swagger.
 - Criar migrações versionadas para o banco de dados.
