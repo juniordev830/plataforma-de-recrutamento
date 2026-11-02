@@ -25,6 +25,8 @@ jobs:
         run: |
           npm audit --json > npm-audit-report.json || true
           node -e 'const r = require("./npm-audit-report.json"); console.log("Resumo npm audit:", JSON.stringify(r.metadata?.vulnerabilities ?? {}, null, 2)); for (const [name, v] of Object.entries(r.vulnerabilities ?? {})) { console.log("\\n" + name + " [" + v.severity + "]" + (v.isDirect ? " (direct)" : " (transitive)")); for (const item of v.via ?? []) { if (typeof item === "object") console.log(" - " + item.title + " | " + (item.url ?? "") + " | range: " + (item.range ?? "")); } console.log(" - Correção disponível: " + JSON.stringify(v.fixAvailable)); }'
+      - name: Fail on high or critical dependency vulnerabilities
+        run: node -e 'const r = require("./npm-audit-report.json"); const v = r.metadata?.vulnerabilities ?? {}; if ((v.critical ?? 0) > 0 || (v.high ?? 0) > 0) { console.error("npm audit found high/critical vulnerabilities", v); process.exit(1); }'
       - name: Check JavaScript syntax
         run: node --check server.js
       - name: Run automated tests
