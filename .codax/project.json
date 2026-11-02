@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "project_kind": "API de recrutamento Node.js / SQLite",
+  "entry_points": [
+    "server.js",
+    "tests/api.test.js"
+  ],
+  "test_commands": [
+    "node --check server.js",
+    "npm test"
+  ],
+  "review_focus": [
+    "Autorização por usuário e por vaga",
+    "Entradas públicas, uploads e limites de requisição"
+  ]
+}
