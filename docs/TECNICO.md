@@ -103,7 +103,7 @@ A suíte cobre health check, validação de cadastro, bloqueio de acesso sem aut
 - CORS configurável por lista de origens.
 - Cabeçalhos HTTP básicos: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` e `Cache-Control: no-store` em respostas `/api/*`. CSP e TLS exigem definição apropriada à implantação e ao frontend.
 - Limitador em memória de 20 tentativas por IP em uma janela de 15 minutos nos endpoints públicos de cadastro e login.
-- Verificação de papel para operações protegidas.
+- Verificação de papel para operações protegidas. A cada requisição protegida, o backend consulta a conta no SQLite e usa seu papel atual, rejeitando tokens de contas excluídas; mudar o papel não deixa permissões antigas ativas até a expiração do JWT.
 - Candidaturas associadas à identidade autenticada e a vagas existentes.
 - Chave estrangeira SQLite habilitada na conexão e índice único para impedir candidatura duplicada à mesma vaga.
 - Banco SQLite armazenado fora do diretório servido pelo Express por padrão.
