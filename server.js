@@ -249,7 +249,8 @@ app.get('/api/health', (req, res) => {
 
 app.post('/api/register', authAttemptLimiter, async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password } = req.body && typeof req.body === 'object' && !Array.isArray(req.body)
+      ? req.body : {};
     // Public registration must never grant privileged roles. Provision company/recruiter accounts out of band.
     if (req.body?.role !== undefined && req.body.role !== 'candidate') {
       return res.status(400).json({ message: 'Tipo de conta não permitido no cadastro público.' });
@@ -302,7 +303,8 @@ app.post('/api/login', authAttemptLimiter, async (req, res) => {
   try {
     const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
     const password = req.body?.password;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || typeof password !== 'string' || !password) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 ||
+        typeof password !== 'string' || password.length < 1 || password.length > 128) {
       return res.status(400).json({ message: 'Informe um e-mail válido e a senha.' });
     }
 
@@ -385,7 +387,11 @@ app.post('/api/applications', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'Apenas candidatos podem se candidatar a vagas.' });
     }
 
-    const jobId = Number(req.body?.jobId);
+    // Do not let JavaScript coerce arrays/objects into valid IDs (e.g. [1] -> 1).
+    const submittedJobId = req.body?.jobId;
+    const validIdType = (typeof submittedJobId === 'number' && Number.isSafeInteger(submittedJobId)) ||
+      (typeof submittedJobId === 'string' && /^[1-9][0-9]*$/.test(submittedJobId));
+    const jobId = validIdType ? Number(submittedJobId) : NaN;
     if (!Number.isSafeInteger(jobId) || jobId <= 0) {
       return res.status(400).json({ message: 'Informe uma vaga válida.' });
     }
