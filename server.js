@@ -206,20 +206,40 @@ function authAttemptLimiter(req, res, next) {
   next();
 }
 
-function authMiddleware(req, res, next) {
+async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Token ausente ou inválido.' });
   }
 
-  const token = authHeader.replace('Bearer ', '');
+  const token = authHeader.slice('Bearer '.length);
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET, {
+      algorithms: ['HS256'],
+      issuer: 'plataforma-de-recrutamento',
+      audience: 'recruitment-api'
+    });
+  } catch {
+    return res.status(401).json({ message: 'Token inválido ou expirado.' });
+  }
+
+  if (!Number.isSafeInteger(decoded.id) || decoded.id <= 0) {
+    return res.status(401).json({ message: 'Token inválido ou expirado.' });
+  }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'], issuer: 'plataforma-de-recrutamento', audience: 'recruitment-api' });
-    req.user = decoded;
-    next();
+    // Current database identity and role, not stale privileges embedded in a JWT.
+    const user = await get('SELECT id, name, email, role, companyName FROM users WHERE id = ?', [decoded.id]);
+    if (!user) {
+      return res.status(401).json({ message: 'Conta não encontrada ou desativada.' });
+    }
+    req.user = user;
+    return next();
   } catch (error) {
-    return res.status(401).json({ message: 'Token inválido ou expirado.' });
+    console.error('Erro ao validar conta:', error.message);
+    return res.status(500).json({ message: 'Não foi possível validar a sessão.' });
   }
 }
 

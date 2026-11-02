@@ -205,7 +205,7 @@ test('login rejects malformed email addresses before authentication', async () =
 
 
 
-test('company accounts cannot submit job applications', async () => {
+test('signed token for an account absent from the database cannot submit applications', async () => {
   const token = jwt.sign(
     { id: 999, email: 'company@example.com', role: 'company', name: 'Company' },
     process.env.JWT_SECRET,
@@ -218,7 +218,7 @@ test('company accounts cannot submit job applications', async () => {
     body: JSON.stringify({ jobId: 1 })
   });
 
-  assert.equal(response.status, 403);
+  assert.equal(response.status, 401);
 });
 
 
@@ -259,4 +259,46 @@ test('security headers protect API responses and prevent framing of frontend', a
   const unauthenticated = await request('/api/applications');
   assert.equal(unauthenticated.status, 401);
   assert.equal(unauthenticated.headers.get('cache-control'), 'no-store');
+});
+
+test('revoked company role is not retained through an older signed JWT', async () => {
+  const candidate = await registerCandidate();
+  await provisionCompany(candidate.user.email, 'Empresa Temporária');
+  const login = await request('/api/login', {
+    method: 'POST',
+    body: JSON.stringify({ email: candidate.user.email, password: 'strong-password-123' })
+  });
+  assert.equal(login.status, 200);
+  const company = await login.json();
+  assert.equal(company.user.role, 'company');
+
+  await new Promise((resolve, reject) => {
+    db.run('UPDATE users SET role = ?, companyName = ? WHERE id = ?',
+      ['candidate', '', candidate.user.id],
+      (error) => error ? reject(error) : resolve());
+  });
+
+  const createJob = await request('/api/jobs', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${company.token}` },
+    body: JSON.stringify({
+      title: 'Cargo sem autorização',
+      location: 'Remoto',
+      type: 'fulltime',
+      description: 'Este cadastro não deve ser permitido.'
+    })
+  });
+  assert.equal(createJob.status, 403);
+});
+
+test('deleted accounts lose access even while a signed token is unexpired', async () => {
+  const candidate = await registerCandidate();
+  await new Promise((resolve, reject) => {
+    db.run('DELETE FROM users WHERE id = ?', [candidate.user.id],
+      (error) => error ? reject(error) : resolve());
+  });
+  const response = await request('/api/applications', {
+    headers: { authorization: `Bearer ${candidate.token}` }
+  });
+  assert.equal(response.status, 401);
 });
