@@ -7,7 +7,7 @@
 - **Banco:** SQLite por meio de `sqlite3`
 - **Autenticação:** JWT com expiração, emissor e audiência
 - **Senhas:** hash com `bcryptjs`
-- **Frontend:** HTML, CSS e JavaScript; parte dos fluxos ainda é simulada com `localStorage`
+- **Frontend:** HTML, CSS e JavaScript, com token da sessão mantido em memória
 - **Testes:** `node:test`, executados com `npm test`
 
 O backend e o frontend compartilham o mesmo servidor Express. A aplicação ainda é um projeto de portfólio e requer validação adicional antes de exposição pública ou uso em produção.
@@ -63,7 +63,7 @@ Recebe `email` e `password`; retorna um JWT e os dados públicos do usuário. To
 
 ### `GET /api/jobs`
 
-Lista as vagas disponíveis.
+Lista as vagas disponíveis. Aceita `q` para busca em título, empresa e local e `type` para filtrar pelo tipo de contrato.
 
 ### `POST /api/jobs`
 
@@ -80,6 +80,18 @@ Requer token de `candidate`. O corpo deve conter `jobId`; o servidor obtém nome
 ### `GET /api/applications`
 
 Requer token de `candidate` e retorna apenas as candidaturas do próprio usuário.
+
+### Vagas salvas
+
+As três rotas exigem token de `candidate` e usam a identidade autenticada:
+
+- `GET /api/saved-jobs` retorna somente as vagas salvas pela conta.
+- `PUT /api/saved-jobs/{jobId}` salva uma vaga existente; repetir a chamada não cria duplicata.
+- `DELETE /api/saved-jobs/{jobId}` remove a associação da própria conta; repetir a remoção retorna 204.
+
+IDs inválidos retornam 400 e salvar uma vaga inexistente retorna 404. A tabela
+`saved_jobs` é criada na inicialização para bancos existentes e suas chaves
+estrangeiras removem associações quando a conta ou a vaga é excluída.
 
 Rotas inexistentes sob `/api` retornam JSON 404.
 
@@ -112,7 +124,7 @@ O limitador em memória não compartilha estado entre instâncias e não substit
 
 ## Limitações e próximos passos
 
-- Integrar cadastro, login e candidatura do frontend com a API; há fluxos que ainda usam `localStorage`.
+- Evoluir a sessão do navegador para autenticação com cookie HttpOnly e proteção adequada contra CSRF.
 - Evoluir o provisionamento administrativo por CLI para gestão auditável de empresas, mantendo papéis privilegiados fora do cadastro público.
 - Adicionar recuperação de senha e verificação de e-mail.
 - Documentar schemas formais com OpenAPI/Swagger.

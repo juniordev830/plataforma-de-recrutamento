@@ -121,6 +121,17 @@ async function initializeDatabase() {
   await run('CREATE INDEX IF NOT EXISTS idx_applications_user_id ON applications(userId)');
   await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_applications_user_job ON applications(userId, jobId)');
 
+  await run(`
+    CREATE TABLE IF NOT EXISTS saved_jobs (
+      userId INTEGER NOT NULL,
+      jobId INTEGER NOT NULL,
+      createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (userId, jobId),
+      FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (jobId) REFERENCES jobs(id) ON DELETE CASCADE
+    )
+  `);
+
   const jobsCount = await get('SELECT COUNT(*) as count FROM jobs');
   if ((jobsCount?.count || 0) === 0) {
     const defaultJobs = [
@@ -395,6 +406,66 @@ app.post('/api/jobs', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Erro ao criar vaga:', error);
     return res.status(500).json({ message: 'Erro ao criar vaga.' });
+  }
+});
+
+function parseJobId(value) {
+  if (typeof value !== 'string' || !/^[1-9][0-9]*$/.test(value)) return null;
+  const id = Number(value);
+  return Number.isSafeInteger(id) ? id : null;
+}
+
+function requireCandidate(req, res, next) {
+  if (req.user.role !== 'candidate') {
+    return res.status(403).json({ message: 'Acesso permitido apenas para candidatos.' });
+  }
+  next();
+}
+
+app.get('/api/saved-jobs', authMiddleware, requireCandidate, async (req, res) => {
+  try {
+    const jobs = await all(`
+      SELECT jobs.*, saved_jobs.createdAt AS savedAt
+      FROM saved_jobs JOIN jobs ON jobs.id = saved_jobs.jobId
+      WHERE saved_jobs.userId = ?
+      ORDER BY saved_jobs.createdAt DESC, jobs.id DESC
+    `, [req.user.id]);
+    return res.json(jobs);
+  } catch (error) {
+    console.error('Erro ao listar vagas salvas:', error.message);
+    return res.status(500).json({ message: 'Não foi possível listar as vagas salvas.' });
+  }
+});
+
+app.put('/api/saved-jobs/:jobId', authMiddleware, requireCandidate, async (req, res) => {
+  const jobId = parseJobId(req.params.jobId);
+  if (jobId === null) return res.status(400).json({ message: 'Informe uma vaga válida.' });
+  try {
+    const job = await get('SELECT id FROM jobs WHERE id = ?', [jobId]);
+    if (!job) return res.status(404).json({ message: 'Vaga não encontrada.' });
+    await run(`
+      INSERT INTO saved_jobs (userId, jobId) VALUES (?, ?)
+      ON CONFLICT(userId, jobId) DO NOTHING
+    `, [req.user.id, jobId]);
+    return res.json({ jobId, saved: true });
+  } catch (error) {
+    if (error.code === 'SQLITE_CONSTRAINT' && /FOREIGN KEY constraint failed/.test(error.message)) {
+      return res.status(404).json({ message: 'Vaga não encontrada.' });
+    }
+    console.error('Erro ao salvar vaga:', error.message);
+    return res.status(500).json({ message: 'Não foi possível salvar a vaga.' });
+  }
+});
+
+app.delete('/api/saved-jobs/:jobId', authMiddleware, requireCandidate, async (req, res) => {
+  const jobId = parseJobId(req.params.jobId);
+  if (jobId === null) return res.status(400).json({ message: 'Informe uma vaga válida.' });
+  try {
+    await run('DELETE FROM saved_jobs WHERE userId = ? AND jobId = ?', [req.user.id, jobId]);
+    return res.status(204).end();
+  } catch (error) {
+    console.error('Erro ao remover vaga salva:', error.message);
+    return res.status(500).json({ message: 'Não foi possível remover a vaga salva.' });
   }
 });
 

@@ -55,6 +55,18 @@ async function registerCandidate() {
   return response.json();
 }
 
+async function candidateFixture() {
+  const email = `saved-${randomUUID()}@example.com`;
+  const id = await new Promise((resolve, reject) => {
+    db.run('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
+      ['Saved Jobs Candidate', email, 'fixture-hash', 'candidate'],
+      function (error) { error ? reject(error) : resolve(this.lastID); });
+  });
+  const token = jwt.sign({ id }, process.env.JWT_SECRET,
+    { expiresIn: '1h', issuer: 'plataforma-de-recrutamento', audience: 'recruitment-api' });
+  return { id, token };
+}
+
 test('SQLite enforces foreign-key constraints for applications', async () => {
   const pragma = await new Promise((resolve, reject) => {
     db.get('PRAGMA foreign_keys', (error, row) => error ? reject(error) : resolve(row));
@@ -96,6 +108,51 @@ test('jobs can be filtered by search text and employment type', async () => {
   assert.equal(duplicateParameter.status, 400);
   const tooLong = await request(`/api/jobs?q=${'x'.repeat(121)}`);
   assert.equal(tooLong.status, 400);
+});
+
+test('saved jobs require authentication and remain isolated between candidates', async () => {
+  assert.equal((await request('/api/saved-jobs')).status, 401);
+  const alice = await candidateFixture();
+  const bob = await candidateFixture();
+  const aliceHeaders = { authorization: `Bearer ${alice.token}` };
+  const bobHeaders = { authorization: `Bearer ${bob.token}` };
+  const jobs = await (await request('/api/jobs')).json();
+  const jobId = jobs[0].id;
+  const route = `/api/saved-jobs/${jobId}`;
+
+  const saved = await request(route, { method: 'PUT', headers: aliceHeaders });
+  assert.equal(saved.status, 200);
+  assert.deepEqual(await saved.json(), { jobId, saved: true });
+  assert.equal((await request(route, { method: 'PUT', headers: aliceHeaders })).status, 200);
+  assert.deepEqual((await (await request('/api/saved-jobs', { headers: aliceHeaders })).json()).map(job => job.id), [jobId]);
+  assert.deepEqual(await (await request('/api/saved-jobs', { headers: bobHeaders })).json(), []);
+
+  assert.equal((await request(route, { method: 'DELETE', headers: bobHeaders })).status, 204);
+  assert.equal((await (await request('/api/saved-jobs', { headers: aliceHeaders })).json()).length, 1);
+  assert.equal((await request(route, { method: 'PUT', headers: bobHeaders })).status, 200);
+  assert.equal((await request(route, { method: 'DELETE', headers: aliceHeaders })).status, 204);
+  assert.equal((await request(route, { method: 'DELETE', headers: aliceHeaders })).status, 204);
+  assert.deepEqual(await (await request('/api/saved-jobs', { headers: aliceHeaders })).json(), []);
+  assert.deepEqual((await (await request('/api/saved-jobs', { headers: bobHeaders })).json()).map(job => job.id), [jobId]);
+
+  for (const id of ['0', 'abc', '1e3', '9007199254740992']) {
+    assert.equal((await request(`/api/saved-jobs/${id}`, { method: 'PUT', headers: aliceHeaders })).status, 400);
+  }
+  assert.equal((await request('/api/saved-jobs/999999999', { method: 'PUT', headers: aliceHeaders })).status, 404);
+
+  await new Promise((resolve, reject) => {
+    db.run('UPDATE users SET role = ? WHERE id = ?', ['company', bob.id],
+      error => error ? reject(error) : resolve());
+  });
+  assert.equal((await request('/api/saved-jobs', { headers: bobHeaders })).status, 403);
+  await new Promise((resolve, reject) => {
+    db.run('DELETE FROM users WHERE id = ?', [bob.id], error => error ? reject(error) : resolve());
+  });
+  const remaining = await new Promise((resolve, reject) => {
+    db.get('SELECT COUNT(*) AS count FROM saved_jobs WHERE userId = ?', [bob.id],
+      (error, row) => error ? reject(error) : resolve(row.count));
+  });
+  assert.equal(remaining, 0, 'saved jobs must be removed with the user');
 });
 
 test('registration rejects weak passwords and unsupported roles', async () => {

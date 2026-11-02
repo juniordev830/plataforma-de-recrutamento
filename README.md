@@ -2,7 +2,7 @@
 
 API e interface demonstrativa para conectar candidatos, empresas e recrutadores. O repositório combina um frontend HTML/CSS/JavaScript com uma API Node.js/Express e persistência SQLite.
 
-> **Status:** projeto de portfólio em desenvolvimento. A interface ainda contém fluxos simulados em `localStorage`; consulte os endpoints da API e a documentação antes de assumir que todas as telas usam o backend.
+> **Status:** projeto de portfólio em desenvolvimento. A interface usa a API para contas, candidaturas, busca e vagas salvas; ainda requer revisão e testes adicionais antes de uso público.
 
 ## Funcionalidades da API
 
@@ -11,6 +11,7 @@ API e interface demonstrativa para conectar candidatos, empresas e recrutadores.
 - Consulta de vagas.
 - Publicação de vagas por contas de empresa/recrutador.
 - Candidaturas vinculadas ao usuário autenticado e a vagas existentes.
+- Vagas salvas por candidato, com acesso restrito à própria conta.
 - Endpoint de health check.
 - Testes automatizados de comportamento e segurança básica.
 
@@ -76,6 +77,9 @@ Os testes usam um banco SQLite temporário e não devem alterar seu banco local.
 | POST | `/api/login` | Público | Autenticar usuário |
 | GET | `/api/jobs` | Público | Listar vagas |
 | POST | `/api/jobs` | Empresa/recrutador | Publicar vaga |
+| GET | `/api/saved-jobs` | Candidato | Listar suas vagas salvas |
+| PUT | `/api/saved-jobs/{jobId}` | Candidato | Salvar uma vaga |
+| DELETE | `/api/saved-jobs/{jobId}` | Candidato | Remover uma vaga salva |
 | POST | `/api/applications` | Candidato | Candidatar-se usando `jobId` |
 | GET | `/api/applications` | Candidato | Listar suas candidaturas |
 
@@ -86,6 +90,11 @@ Para buscar vagas, use os filtros opcionais `q` e `type` em `GET /api/jobs`. Por
 A página inicial também oferece busca por cargo, empresa ou local e filtro por
 tipo de contrato. Use **Limpar** para voltar à lista completa. A busca consulta
 as vagas cadastradas neste projeto; ela não reúne vagas de outras plataformas.
+
+Após entrar como candidato, use **Salvar vaga** e acesse **Vagas salvas**.
+As vagas ficam vinculadas à conta no banco SQLite da aplicação; sair do
+navegador não as apaga. Para acessá-las em outro dispositivo, é preciso
+conectar-se à mesma instalação da aplicação e entrar na mesma conta.
 
 ## Segurança implementada na API
 
@@ -118,8 +127,8 @@ Consulte [`docs/AUDITORIA_E_PLANO_DE_MELHORIAS.md`](docs/AUDITORIA_E_PLANO_DE_ME
 
 ## Próximas melhorias
 
-- Integrar as telas de cadastro/login/candidatura com a API (hoje alguns fluxos ainda usam `localStorage`).
-- Adicionar rate limiting e política de recuperação de senha.
+- Evoluir autenticação do navegador e política de recuperação de senha.
+- Usar rate limiting compartilhado quando houver múltiplas instâncias.
 - Criar testes de integração para todos os endpoints e cenários de erro.
 - Documentar OpenAPI/Swagger e adicionar migrações de banco.
 - Implementar um painel de recrutador para acompanhar candidaturas às vagas da própria empresa.
