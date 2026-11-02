@@ -19,6 +19,7 @@ Copie `.env.example` para `.env` e defina:
 - `PORT`: porta HTTP (padrão `3001`).
 - `JWT_SECRET`: segredo aleatório com pelo menos 32 caracteres; a aplicação não inicia sem esse valor.
 - `CORS_ORIGIN`: lista separada por vírgulas de origens confiáveis que podem acessar a API via navegador.
+- `DATABASE_DIR` ou `DATABASE_PATH` (opcionais): diretório ou caminho do banco SQLite. Por padrão, o banco fica em `~/.plataforma-de-recrutamento/database.sqlite`, fora da pasta servida pelo Express.
 
 Nunca versione o arquivo `.env` real. Se uma chave for exposta, substitua-a imediatamente.
 
@@ -54,7 +55,7 @@ Exemplo de corpo:
 }
 ```
 
-Papéis permitidos: `candidate`, `company` e `recruiter`. Para contas `company` e `recruiter`, informe também `companyName`. A senha deve ter de 8 a 128 caracteres. Retorna token e dados públicos do usuário.
+O cadastro público cria exclusivamente contas `candidate`. Se o campo `role` for enviado, seu único valor aceito é `candidate`; tentativas de criar contas `company` ou `recruiter` são rejeitadas com HTTP 400. O endpoint não aceita nem define `companyName`. Contas privilegiadas ainda precisam de um fluxo administrativo de provisionamento, que não está implementado. A senha deve ter de 8 a 128 caracteres. Retorna token e dados públicos do usuário.
 
 ### `POST /api/login`
 
@@ -70,15 +71,19 @@ Requer `Authorization: Bearer <token>` de uma conta `company` ou `recruiter`. Re
 
 Tipos de vaga aceitos: `fulltime`, `parttime`, `contract`, `internship` e `temporary`.
 
+**Limitação atual:** como o cadastro público só cria candidatos e ainda não existe provisionamento administrativo, uma conta empresarial não pode ser criada pelo fluxo público normal.
+
 ### `POST /api/applications`
 
-Requer token de `candidate`. O corpo deve conter somente `jobId`; o servidor obtém nome, e-mail e detalhes da vaga a partir dos dados autenticados e do banco.
+Requer token de `candidate`. O corpo deve conter `jobId`; o servidor obtém nome, e-mail e detalhes da vaga a partir dos dados autenticados e do banco.
 
 ### `GET /api/applications`
 
 Requer token de `candidate` e retorna apenas as candidaturas do próprio usuário.
 
 Rotas inexistentes sob `/api` retornam JSON 404.
+
+Para endpoints protegidos, envie `Authorization: Bearer <token>`.
 
 ## Testes
 
@@ -87,25 +92,30 @@ npm test
 node --check server.js
 ```
 
-A suíte cobre health check, validação de cadastro, bloqueio de acesso sem autenticação, restrição de papéis, integridade dos dados de candidatura e rotas inexistentes. O workflow do GitHub Actions executa verificações em pushes e pull requests.
+A suíte cobre health check, validação de cadastro, bloqueio de acesso sem autenticação, restrição de papéis, integridade referencial, identidade e dados de candidaturas, prevenção de duplicidade, login e rotas inexistentes. O workflow do GitHub Actions executa verificações em pushes e pull requests.
 
 ## Controles implementados
 
 - Segredo JWT obrigatório com comprimento mínimo.
-- Expiração de token e validação de emissor/audiência.
+- Expiração de token e validação de emissor/audiência, com algoritmo HS256 explicitamente permitido.
 - Hash de senhas e validação básica de entrada.
 - Limite de 1 MB para corpos HTTP.
 - CORS configurável por lista de origens.
+- Limitador em memória de 20 tentativas por IP em uma janela de 15 minutos nos endpoints públicos de cadastro e login.
 - Verificação de papel para operações protegidas.
 - Candidaturas associadas à identidade autenticada e a vagas existentes.
-- Índice único para impedir candidatura duplicada à mesma vaga.
+- Chave estrangeira SQLite habilitada na conexão e índice único para impedir candidatura duplicada à mesma vaga.
+- Banco SQLite armazenado fora do diretório servido pelo Express por padrão.
+
+O limitador em memória não compartilha estado entre instâncias e não substitui uma solução distribuída (por exemplo, Redis) em implantação com múltiplas instâncias. A configuração de proxy também deve ser revisada antes de confiar no IP encaminhado por um balanceador.
 
 ## Limitações e próximos passos
 
 - Integrar cadastro, login e candidatura do frontend com a API; há fluxos que ainda usam `localStorage`.
-- Melhorar a resposta HTTP para conflitos de unicidade em todos os cenários.
-- Implementar rate limiting, recuperação de senha e verificação de e-mail.
+- Implementar provisionamento administrativo seguro de contas empresariais/recrutadores, sem liberar papéis privilegiados no cadastro público.
+- Adicionar recuperação de senha e verificação de e-mail.
 - Documentar schemas formais com OpenAPI/Swagger.
 - Criar migrações versionadas para o banco de dados.
 - Adicionar painel para recrutadores com isolamento por empresa.
 - Revisar autenticação, autorização, logs, backups e configuração de produção antes de publicar o serviço.
+
