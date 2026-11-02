@@ -302,3 +302,34 @@ test('deleted accounts lose access even while a signed token is unexpired', asyn
   });
   assert.equal(response.status, 401);
 });
+
+
+test('registration rejects null JSON body instead of returning a server error', async () => {
+  const response = await request('/api/register', {
+    method: 'POST',
+    body: JSON.stringify(null)
+  });
+  assert.equal(response.status, 400);
+});
+
+test('login rejects oversized credentials before password hashing', async () => {
+  const response = await request('/api/login', {
+    method: 'POST',
+    body: JSON.stringify({
+      email: 'known@example.com',
+      password: 'x'.repeat(129)
+    })
+  });
+  assert.equal(response.status, 400);
+});
+
+test('applications reject coerced job identifiers such as arrays', async () => {
+  const candidate = await registerCandidate();
+  const jobs = await (await request('/api/jobs')).json();
+  const response = await request('/api/applications', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + candidate.token },
+    body: JSON.stringify({ jobId: [jobs[0].id] })
+  });
+  assert.equal(response.status, 400);
+});
