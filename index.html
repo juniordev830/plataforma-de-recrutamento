@@ -28,7 +28,7 @@
     .jobs{display:grid;gap:12px}.job,.panel{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:20px;box-shadow:0 5px 16px #14283d08}
     .job-top{display:flex;justify-content:space-between;gap:12px;align-items:start}.job h3{margin:0 0 5px;font-size:1.08rem}
     .tag{display:inline-block;border-radius:999px;background:#e8f2f6;color:#24566a;padding:4px 9px;font-size:.78rem;font-weight:700}
-    .job p{margin:10px 0;color:var(--muted)}.job .btn{margin-top:8px}
+    .job p{margin:10px 0;color:var(--muted)}.job .btn{margin-top:8px}.job-actions{display:flex;flex-wrap:wrap;gap:8px}
     .panel h2{font-size:1.15rem;margin-bottom:12px}.panel+.panel{margin-top:14px}
     label{display:block;font-size:.88rem;font-weight:700;margin:12px 0 5px}
     input,select{width:100%;border:1px solid #cbd8e1;border-radius:9px;padding:10px 11px;background:white;color:var(--ink)}
@@ -51,6 +51,7 @@
       <div class="brand">oportuniza<span>.</span></div>
       <nav aria-label="Navegação principal">
         <button type="button" id="nav-jobs">Explorar vagas</button>
+        <button type="button" id="nav-saved-jobs">Vagas salvas</button>
         <button type="button" id="nav-applications">Minhas candidaturas</button>
         <button type="button" id="nav-account">Minha conta</button>
       </nav>
@@ -84,7 +85,12 @@
             <button class="btn" type="submit">Buscar</button>
             <button class="btn ghost" id="clear-job-filters" type="button">Limpar</button>
           </form>
+          <p id="jobs-status" class="status" role="status" aria-live="polite"></p>
           <div id="jobs" class="jobs" aria-live="polite"><div class="empty">Carregando oportunidades…</div></div>
+          <section id="saved-jobs-section" class="hidden">
+            <div class="section-head"><div><h2>Minhas vagas salvas</h2><div class="muted">Acesse novamente as vagas que você guardou</div></div></div>
+            <div id="saved-jobs" class="jobs" aria-live="polite"></div>
+          </section>
           <section id="applications-section" class="hidden">
             <div class="section-head"><div><h2>Minhas candidaturas</h2><div class="muted">Acompanhe as vagas às quais você se candidatou</div></div></div>
             <div id="applications" class="panel" aria-live="polite"></div>
@@ -131,6 +137,15 @@
     const jobsContainer = $('jobs');
     let activeJobFilters = { q: '', type: '' };
     let jobRequestSequence = 0;
+    let savedRequestSequence = 0;
+    let sessionVersion = 0;
+    let savedJobs = [];
+    let savedJobIds = new Set();
+    let pendingSaves = new Set();
+    let savedLoading = false;
+    let jobsLoading = false;
+    let visibleJobs = null;
+    let visibleJobsFiltered = false;
 
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -140,6 +155,12 @@
 
     function setStatus(message, type = '') {
       const status = $('auth-status');
+      status.textContent = message;
+      status.className = 'status' + (type ? ' ' + type : '');
+    }
+
+    function setJobsStatus(message, type = '') {
+      const status = $('jobs-status');
       status.textContent = message;
       status.className = 'status' + (type ? ' ' + type : '');
     }
@@ -163,26 +184,97 @@
       }
     }
 
-    function renderJobs(jobs, filtered = false) {
+    function renderJobList(container, jobs, emptyMessage) {
       if (!Array.isArray(jobs) || jobs.length === 0) {
-        jobsContainer.innerHTML = filtered
-          ? '<div class="empty">Nenhuma vaga encontrada para esses filtros.</div>'
-          : '<div class="empty">Nenhuma vaga disponível no momento. Volte em breve.</div>';
+        container.innerHTML = '<div class="empty">' + escapeHtml(emptyMessage) + '</div>';
         return;
       }
-      jobsContainer.innerHTML = jobs.map((job) => {
+      container.innerHTML = jobs.map((job) => {
         const id = Number(job.id);
         const validId = Number.isSafeInteger(id) && id > 0;
+        const isSaved = savedJobIds.has(id);
+        const canSave = !currentUser || currentUser.role === 'candidate';
         return '<article class="job">' +
           '<div class="job-top"><div><h3>' + escapeHtml(job.title) + '</h3><div class="muted">' + escapeHtml(job.company) + ' · ' + escapeHtml(job.location) + '</div></div>' +
           '<span class="tag">' + escapeHtml(job.typeLabel || job.type) + '</span></div>' +
           '<p>' + escapeHtml(job.short || job.description || '') + '</p>' +
+          '<div class="job-actions">' +
           (validId ? '<button class="btn apply" type="button" data-job-id="' + id + '"' + (accessToken ? '' : ' title="Entre para se candidatar"') + '>Candidatar-se</button>' : '') +
-          '</article>';
+          (validId && canSave ? '<button class="btn ghost save-job" type="button" data-job-id="' + id + '" aria-pressed="' + isSaved + '"' +
+            (pendingSaves.has(id) || (accessToken && savedLoading) ? ' disabled' : '') + '>' +
+            (isSaved ? 'Remover dos salvos' : 'Salvar vaga') + '</button>' : '') +
+          '</div></article>';
       }).join('');
-      jobsContainer.querySelectorAll('.apply').forEach((button) => {
+      container.querySelectorAll('.apply').forEach((button) => {
         button.addEventListener('click', () => applyToJob(Number(button.dataset.jobId)));
       });
+      container.querySelectorAll('.save-job').forEach((button) => {
+        button.addEventListener('click', () => toggleSavedJob(Number(button.dataset.jobId)));
+      });
+    }
+
+    function renderJobs(jobs, filtered = false) {
+      visibleJobs = Array.isArray(jobs) ? jobs : [];
+      visibleJobsFiltered = filtered;
+      renderJobList(jobsContainer, visibleJobs, filtered
+        ? 'Nenhuma vaga encontrada para esses filtros.'
+        : 'Nenhuma vaga disponível no momento. Volte em breve.');
+    }
+
+    function refreshSavedViews() {
+      if (!jobsLoading && visibleJobs !== null) renderJobs(visibleJobs, visibleJobsFiltered);
+      if (accessToken && currentUser?.role === 'candidate' && !savedLoading) {
+        renderJobList($('saved-jobs'), savedJobs, 'Você ainda não salvou nenhuma vaga.');
+      }
+    }
+
+    async function loadSavedJobs() {
+      if (!accessToken || currentUser?.role !== 'candidate') return;
+      const version = sessionVersion;
+      const requestId = ++savedRequestSequence;
+      savedLoading = true;
+      $('saved-jobs-section').classList.remove('hidden');
+      $('saved-jobs').textContent = 'Carregando vagas salvas…';
+      refreshSavedViews();
+      try {
+        const items = await api('/saved-jobs');
+        if (version !== sessionVersion || requestId !== savedRequestSequence) return;
+        savedJobs = Array.isArray(items) ? items : [];
+        savedJobIds = new Set(savedJobs.map(job => Number(job.id)).filter(Number.isSafeInteger));
+        savedLoading = false;
+        refreshSavedViews();
+      } catch (error) {
+        if (version !== sessionVersion || requestId !== savedRequestSequence) return;
+        savedLoading = false;
+        $('saved-jobs').textContent = error.message;
+        setJobsStatus('Não foi possível atualizar as vagas salvas.', 'error');
+        if (!jobsLoading && visibleJobs !== null) renderJobs(visibleJobs, visibleJobsFiltered);
+      }
+    }
+
+    async function toggleSavedJob(jobId) {
+      if (!accessToken || !currentUser) {
+        setJobsStatus('Entre ou crie sua conta de candidato para salvar vagas.', 'error');
+        $('account').scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+      if (currentUser.role !== 'candidate' || savedLoading || pendingSaves.has(jobId)) return;
+      const version = sessionVersion;
+      const pending = pendingSaves;
+      const wasSaved = savedJobIds.has(jobId);
+      pending.add(jobId);
+      refreshSavedViews();
+      try {
+        await api('/saved-jobs/' + jobId, { method: wasSaved ? 'DELETE' : 'PUT' });
+        if (version !== sessionVersion) return;
+        setJobsStatus(wasSaved ? 'Vaga removida dos salvos.' : 'Vaga salva na sua conta.', 'success');
+        await loadSavedJobs();
+      } catch (error) {
+        if (version === sessionVersion) setJobsStatus(error.message, 'error');
+      } finally {
+        pending.delete(jobId);
+        if (version === sessionVersion) refreshSavedViews();
+      }
     }
 
     async function loadJobs() {
@@ -192,12 +284,18 @@
       if (q) params.set('q', q);
       if (type) params.set('type', type);
       const query = params.toString();
+      jobsLoading = true;
       jobsContainer.innerHTML = '<div class="empty">Carregando oportunidades…</div>';
       try {
         const jobs = await api('/jobs' + (query ? '?' + query : ''));
-        if (requestId === jobRequestSequence) renderJobs(jobs, Boolean(q || type));
+        if (requestId === jobRequestSequence) {
+          jobsLoading = false;
+          renderJobs(jobs, Boolean(q || type));
+        }
       } catch (error) {
         if (requestId !== jobRequestSequence) return;
+        jobsLoading = false;
+        visibleJobs = null;
         jobsContainer.innerHTML = '<div class="empty">' + escapeHtml(error.message) + ' <button class="link-button" id="retry-jobs" type="button">Tentar novamente</button></div>';
         $('retry-jobs')?.addEventListener('click', loadJobs);
       }
@@ -209,25 +307,29 @@
         $('account').scrollIntoView({ behavior: 'smooth' });
         return;
       }
+      const version = sessionVersion;
       try {
         await api('/applications', { method: 'POST', body: JSON.stringify({ jobId }) });
+        if (version !== sessionVersion) return;
         setStatus('Candidatura enviada com sucesso.', 'success');
         await loadApplications();
-      } catch (error) { setStatus(error.message, 'error'); }
+      } catch (error) { if (version === sessionVersion) setStatus(error.message, 'error'); }
     }
 
     async function loadApplications() {
       if (!accessToken) return;
+      const version = sessionVersion;
       $('applications-section').classList.remove('hidden');
       const container = $('applications');
       container.textContent = 'Carregando candidaturas…';
       try {
         const items = await api('/applications');
+        if (version !== sessionVersion) return;
         container.innerHTML = items.length ? items.map((item) =>
           '<div class="application"><strong>' + escapeHtml(item.jobTitle) + '</strong><div class="muted">' +
           escapeHtml(item.company) + ' · candidatura #' + escapeHtml(item.id) + '</div></div>'
         ).join('') : '<p class="muted">Você ainda não enviou candidaturas.</p>';
-      } catch (error) { container.textContent = error.message; }
+      } catch (error) { if (version === sessionVersion) container.textContent = error.message; }
     }
 
     $('auth-form').addEventListener('submit', async (event) => {
@@ -245,10 +347,16 @@
         });
         accessToken = result.token;
         currentUser = result.user;
+        const version = ++sessionVersion;
+        savedRequestSequence++;
+        savedJobs = []; savedJobIds = new Set(); pendingSaves = new Set(); savedLoading = false;
+        $('saved-jobs-section').classList.add('hidden');
+        $('saved-jobs').textContent = '';
         renderAccount();
         setStatus(registerMode ? 'Conta criada. Boas-vindas!' : 'Login realizado com sucesso.', 'success');
         $('applications-section').classList.remove('hidden');
-        await loadApplications();
+        await Promise.all([loadApplications(), loadSavedJobs()]);
+        if (version !== sessionVersion) return;
         await loadJobs();
       } catch (error) { setStatus(error.message, 'error'); }
     });
@@ -278,11 +386,25 @@
     });
     $('logout').addEventListener('click', () => {
       accessToken = null; currentUser = null;
+      sessionVersion++; savedRequestSequence++;
+      savedJobs = []; savedJobIds = new Set(); pendingSaves = new Set(); savedLoading = false;
+      $('saved-jobs-section').classList.add('hidden');
+      $('saved-jobs').textContent = '';
+      setJobsStatus('');
       $('applications-section').classList.add('hidden');
       renderAccount(); setRegisterMode(false); setStatus('Você saiu da sua conta.', 'success'); loadJobs();
     });
     $('refresh-jobs').addEventListener('click', loadJobs);
     $('nav-jobs').addEventListener('click', () => $('jobs-heading').scrollIntoView({ behavior: 'smooth' }));
+    $('nav-saved-jobs').addEventListener('click', () => {
+      if (accessToken && currentUser?.role === 'candidate') {
+        loadSavedJobs();
+        $('saved-jobs-section').scrollIntoView({ behavior: 'smooth' });
+      } else {
+        setJobsStatus('Entre como candidato para ver suas vagas salvas.', 'error');
+        $('account').scrollIntoView({ behavior: 'smooth' });
+      }
+    });
     $('hero-jobs').addEventListener('click', () => $('jobs-heading').scrollIntoView({ behavior: 'smooth' }));
     $('nav-applications').addEventListener('click', () => {
       if (accessToken) { loadApplications(); $('applications-section').scrollIntoView({ behavior: 'smooth' }); }
