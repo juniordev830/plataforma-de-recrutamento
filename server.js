@@ -338,7 +338,24 @@ app.post('/api/login', authAttemptLimiter, async (req, res) => {
 
 app.get('/api/jobs', async (req, res) => {
   try {
-    const jobs = await all('SELECT * FROM jobs ORDER BY id DESC');
+    const { q, type } = req.query;
+    const supportedTypes = ['fulltime', 'parttime', 'contract', 'internship', 'temporary'];
+    if ((q !== undefined && (typeof q !== 'string' || q.length > 120)) ||
+        (type !== undefined && (typeof type !== 'string' || !supportedTypes.includes(type)))) {
+      return res.status(400).json({ message: 'Filtros de vagas inválidos.' });
+    }
+    const conditions = [];
+    const parameters = [];
+    if (q && q.trim()) {
+      conditions.push("instr(lower(title || ' ' || company || ' ' || location), lower(?)) > 0");
+      parameters.push(q.trim());
+    }
+    if (type) {
+      conditions.push('type = ?');
+      parameters.push(type);
+    }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const jobs = await all(`SELECT * FROM jobs ${where} ORDER BY id DESC`, parameters);
     return res.json(jobs);
   } catch (error) {
     console.error('Erro ao listar vagas:', error);

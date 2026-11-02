@@ -81,6 +81,8 @@ Os testes usam um banco SQLite temporário e não devem alterar seu banco local.
 
 Para os endpoints protegidos, envie `Authorization: Bearer <token>`. Os formatos completos estão em [`docs/TECNICO.md`](docs/TECNICO.md).
 
+Para buscar vagas, use os filtros opcionais `q` e `type` em `GET /api/jobs`. Por exemplo, `/api/jobs?q=remoto&type=fulltime` combina o texto com o tipo de contrato. A busca verifica título, empresa e localização. Os tipos aceitos são `fulltime`, `parttime`, `contract`, `internship` e `temporary`.
+
 ## Segurança implementada na API
 
 - A aplicação exige `JWT_SECRET` configurado com pelo menos 32 caracteres.

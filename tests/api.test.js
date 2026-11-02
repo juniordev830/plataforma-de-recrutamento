@@ -80,6 +80,24 @@ test('health endpoint reports that the API is running', async () => {
   assert.equal((await response.json()).ok, true);
 });
 
+test('jobs can be filtered by search text and employment type', async () => {
+  const response = await request('/api/jobs?q=remoto&type=fulltime');
+  assert.equal(response.status, 200);
+  const jobs = await response.json();
+  assert.ok(jobs.length > 0);
+  assert.ok(jobs.every(job => job.type === 'fulltime' &&
+    `${job.title} ${job.company} ${job.location}`.toLowerCase().includes('remoto')));
+
+  const missing = await request('/api/jobs?q=__no_matching_job__');
+  assert.deepEqual(await missing.json(), []);
+  const unknownType = await request('/api/jobs?type=unknown');
+  assert.equal(unknownType.status, 400);
+  const duplicateParameter = await request('/api/jobs?q=remoto&q=dev');
+  assert.equal(duplicateParameter.status, 400);
+  const tooLong = await request(`/api/jobs?q=${'x'.repeat(121)}`);
+  assert.equal(tooLong.status, 400);
+});
+
 test('registration rejects weak passwords and unsupported roles', async () => {
   const weakPassword = await request('/api/register', {
     method: 'POST',
