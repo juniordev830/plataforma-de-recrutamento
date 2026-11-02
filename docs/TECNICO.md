@@ -101,6 +101,7 @@ A suíte cobre health check, validação de cadastro, bloqueio de acesso sem aut
 - Hash de senhas e validação básica de entrada.
 - Limite de 1 MB para corpos HTTP.
 - CORS configurável por lista de origens.
+- Cabeçalhos HTTP básicos: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` e `Cache-Control: no-store` em respostas `/api/*`. CSP e TLS exigem definição apropriada à implantação e ao frontend.
 - Limitador em memória de 20 tentativas por IP em uma janela de 15 minutos nos endpoints públicos de cadastro e login.
 - Verificação de papel para operações protegidas.
 - Candidaturas associadas à identidade autenticada e a vagas existentes.

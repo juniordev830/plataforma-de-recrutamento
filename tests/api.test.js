@@ -244,3 +244,19 @@ test('operator can provision an existing company account', async () => {
   assert.equal(job.status, 201);
   await assert.rejects(() => provisionCompany('missing@example.com', 'Empresa'));
 });
+
+test('security headers protect API responses and prevent framing of frontend', async () => {
+  const api = await request('/api/health');
+  assert.equal(api.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(api.headers.get('x-frame-options'), 'DENY');
+  assert.equal(api.headers.get('referrer-policy'), 'no-referrer');
+  assert.equal(api.headers.get('cache-control'), 'no-store');
+
+  const home = await request('/');
+  assert.equal(home.headers.get('x-frame-options'), 'DENY');
+  assert.equal(home.headers.get('x-content-type-options'), 'nosniff');
+
+  const unauthenticated = await request('/api/applications');
+  assert.equal(unauthenticated.status, 401);
+  assert.equal(unauthenticated.headers.get('cache-control'), 'no-store');
+});
