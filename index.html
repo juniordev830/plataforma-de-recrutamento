@@ -9,7 +9,7 @@
   <style>
     :root{color-scheme:light;--ink:#14283d;--muted:#64748b;--brand:#176b87;--brand-dark:#10546b;--line:#dce6ed;--surface:#fff;--bg:#f3f7fa;--good:#176b4a;--bad:#a83232}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
-    button,input{font:inherit}button{cursor:pointer}.shell{max-width:1120px;margin:auto;padding:24px}
+    button,input,select{font:inherit}button{cursor:pointer}.shell{max-width:1120px;margin:auto;padding:24px}
     header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:10px 0 26px}
     .brand{font-weight:850;font-size:1.35rem;letter-spacing:-.04em}.brand span{color:var(--brand)}
     nav{display:flex;gap:10px;align-items:center;flex-wrap:wrap}nav button,.link-button{border:0;background:transparent;color:var(--brand-dark);font-weight:650;padding:9px 12px;border-radius:9px}
@@ -31,15 +31,18 @@
     .job p{margin:10px 0;color:var(--muted)}.job .btn{margin-top:8px}
     .panel h2{font-size:1.15rem;margin-bottom:12px}.panel+.panel{margin-top:14px}
     label{display:block;font-size:.88rem;font-weight:700;margin:12px 0 5px}
-    input{width:100%;border:1px solid #cbd8e1;border-radius:9px;padding:10px 11px;background:white;color:var(--ink)}
-    input:focus{outline:3px solid #176b8728;border-color:var(--brand)}
+    input,select{width:100%;border:1px solid #cbd8e1;border-radius:9px;padding:10px 11px;background:white;color:var(--ink)}
+    input:focus,select:focus{outline:3px solid #176b8728;border-color:var(--brand)}
     form .btn{width:100%;margin-top:14px}
+    .job-filters{display:grid;grid-template-columns:minmax(0,2fr) minmax(150px,1fr) auto auto;gap:10px;align-items:end;margin-bottom:14px}
+    .job-filters label{margin-top:0}
+    .job-filters .btn{width:auto;margin:0;min-height:46px}
     .status{min-height:24px;margin:10px 0 0;font-size:.9rem}.status.error{color:var(--bad)}.status.success{color:var(--good)}
     .application{padding:12px 0;border-top:1px solid var(--line)}.application:first-of-type{border-top:0}
     .empty{padding:24px;text-align:center;color:var(--muted);background:#fff;border:1px dashed #cbd8e1;border-radius:14px}
     .hidden{display:none!important}footer{text-align:center;color:var(--muted);font-size:.85rem;padding:32px 0 12px}
     @media(max-width:800px){.layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.panel+.panel{margin-top:0}}
-    @media(max-width:540px){.shell{padding:15px}header{align-items:flex-start;flex-direction:column}.job-top{flex-direction:column}.section-head{align-items:start;flex-direction:column}}
+    @media(max-width:540px){.shell{padding:15px}header{align-items:flex-start;flex-direction:column}.job-top{flex-direction:column}.section-head{align-items:start;flex-direction:column}.job-filters{grid-template-columns:1fr 1fr}.job-filters .search-field{grid-column:1/-1}.job-filters .type-field{grid-column:1/-1}}
   </style>
 </head>
 <body>
@@ -71,6 +74,16 @@
 
       <div class="layout">
         <section aria-labelledby="jobs-heading">
+          <form id="job-filter-form" class="job-filters" role="search" aria-label="Buscar vagas">
+            <div class="search-field"><label for="job-search-text">Cargo, empresa ou local</label><input id="job-search-text" type="search" maxlength="120" placeholder="Ex.: desenvolvedor remoto" /></div>
+            <div class="type-field"><label for="job-type">Tipo de contrato</label><select id="job-type">
+              <option value="">Todos</option><option value="fulltime">Tempo integral</option>
+              <option value="parttime">Meio período</option><option value="contract">Contrato</option>
+              <option value="internship">Estágio</option><option value="temporary">Temporário</option>
+            </select></div>
+            <button class="btn" type="submit">Buscar</button>
+            <button class="btn ghost" id="clear-job-filters" type="button">Limpar</button>
+          </form>
           <div id="jobs" class="jobs" aria-live="polite"><div class="empty">Carregando oportunidades…</div></div>
           <section id="applications-section" class="hidden">
             <div class="section-head"><div><h2>Minhas candidaturas</h2><div class="muted">Acompanhe as vagas às quais você se candidatou</div></div></div>
@@ -116,6 +129,8 @@
     let registerMode = false;
     const $ = (id) => document.getElementById(id);
     const jobsContainer = $('jobs');
+    let activeJobFilters = { q: '', type: '' };
+    let jobRequestSequence = 0;
 
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -148,9 +163,11 @@
       }
     }
 
-    function renderJobs(jobs) {
+    function renderJobs(jobs, filtered = false) {
       if (!Array.isArray(jobs) || jobs.length === 0) {
-        jobsContainer.innerHTML = '<div class="empty">Nenhuma vaga disponível no momento. Volte em breve.</div>';
+        jobsContainer.innerHTML = filtered
+          ? '<div class="empty">Nenhuma vaga encontrada para esses filtros.</div>'
+          : '<div class="empty">Nenhuma vaga disponível no momento. Volte em breve.</div>';
         return;
       }
       jobsContainer.innerHTML = jobs.map((job) => {
@@ -169,9 +186,21 @@
     }
 
     async function loadJobs() {
+      const requestId = ++jobRequestSequence;
+      const { q, type } = activeJobFilters;
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      if (type) params.set('type', type);
+      const query = params.toString();
       jobsContainer.innerHTML = '<div class="empty">Carregando oportunidades…</div>';
-      try { renderJobs(await api('/jobs')); }
-      catch (error) { jobsContainer.innerHTML = '<div class="empty">' + escapeHtml(error.message) + ' <button class="link-button" id="retry-jobs" type="button">Tentar novamente</button></div>'; $('retry-jobs')?.addEventListener('click', loadJobs); }
+      try {
+        const jobs = await api('/jobs' + (query ? '?' + query : ''));
+        if (requestId === jobRequestSequence) renderJobs(jobs, Boolean(q || type));
+      } catch (error) {
+        if (requestId !== jobRequestSequence) return;
+        jobsContainer.innerHTML = '<div class="empty">' + escapeHtml(error.message) + ' <button class="link-button" id="retry-jobs" type="button">Tentar novamente</button></div>';
+        $('retry-jobs')?.addEventListener('click', loadJobs);
+      }
     }
 
     async function applyToJob(jobId) {
@@ -237,6 +266,16 @@
     }
 
     $('toggle-auth').addEventListener('click', () => setRegisterMode(!registerMode));
+    $('job-filter-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      activeJobFilters = { q: $('job-search-text').value.trim(), type: $('job-type').value };
+      loadJobs();
+    });
+    $('clear-job-filters').addEventListener('click', () => {
+      $('job-filter-form').reset();
+      activeJobFilters = { q: '', type: '' };
+      loadJobs();
+    });
     $('logout').addEventListener('click', () => {
       accessToken = null; currentUser = null;
       $('applications-section').classList.add('hidden');
