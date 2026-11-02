@@ -67,6 +67,8 @@ function all(sql, params = []) {
 }
 
 async function initializeDatabase() {
+  // SQLite does not enforce declared foreign keys unless enabled per connection.
+  await run('PRAGMA foreign_keys = ON');
   await run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

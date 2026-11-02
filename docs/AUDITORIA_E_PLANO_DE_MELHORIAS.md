@@ -34,7 +34,7 @@ A execução do GitHub Actions em 1º de novembro de 2026 confirmou 12 vulnerabi
 ### P2 — Proteção contra abuso de autenticação ainda é incompleta
 - Não foi identificado middleware de limitação de tentativas (rate limiting) no `server.js`.
 - Impacto: endpoints de login e cadastro ficam mais expostos a tentativas repetidas quando publicados.
-- Próximo passo: adicionar limitação de requisições, mensagens seguras e testes de comportamento.
+- Estado atual: o `server.js` já aplica um limitador em memória de 20 tentativas por IP a cada 15 minutos nos endpoints públicos de cadastro e login. A estrutura não é compartilhada entre instâncias e deve ser substituída por armazenamento compartilhado em implantação distribuída. Os testes automatizados para o limite ainda precisam ser adicionados.
 
 ### P2 — Integridade relacional do SQLite precisa ser verificada
 - A tabela `applications` declara uma chave estrangeira para `users`, mas o código lido não ativa explicitamente `PRAGMA foreign_keys = ON`.
