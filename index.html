@@ -1,87 +1,259 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Plataforma de recrutamento e seleção - template inicial" />
-    <meta name="theme-color" content="#2563eb" />
-    <title>Plataforma de Recrutamento</title>
-    <style>
-      /* Estilos mínimos e limpos para visualização rápida */
-      :root {
-        --bg: #f7f9fb;
-        --card: #ffffff;
-        --muted: #6b7280;
-        --accent: #2563eb;
-        --accent-dark: #1d4ed8;
-        --ink: #111827;
-      }
-      html,body{
-        height:100%;
-        margin:0;
-        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
-        background:linear-gradient(145deg, #eff6ff 0%, var(--bg) 45%, #f8fafc 100%);
-        color:var(--ink);
-      }
-      .container{max-width:1000px;margin:36px auto;padding:24px}
-      header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:20px}
-      header h1{font-size:1.25rem;margin:0;letter-spacing:-.02em}
-      nav{display:flex;gap:8px;flex-wrap:wrap}
-      nav a{color:var(--accent-dark);text-decoration:none;padding:8px 12px;border-radius:999px}
-      nav a:hover,nav a:focus-visible{background:#dbeafe}
-      main{background:rgba(255,255,255,.9);padding:clamp(24px,5vw,42px);border-radius:20px;box-shadow:0 16px 42px rgba(30,64,175,.10);border:1px solid #dbeafe}
-      .lead{color:var(--muted);margin-top:8px}
-      .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:16px}
-      .card{padding:20px;border-radius:14px;background:#fff;border:1px solid #e5e7eb;transition:transform .18s ease,box-shadow .18s ease}
-      .card:hover{transform:translateY(-3px);box-shadow:0 10px 22px rgba(15,23,42,.08)}
-      footer{margin-top:18px;color:var(--muted);font-size:0.9rem;text-align:center}
-      @media (max-width:520px){.container{margin:16px auto;padding:16px}header{flex-direction:column;align-items:flex-start}nav{margin-top:8px}}
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <header>
-        <h1>Plataforma de Recrutamento</h1>
-        <nav>
-          <a href="#vagas">Vagas</a>
-          <a href="#empresas">Empresas</a>
-          <a href="#candidatos">Candidatos</a>
-        </nav>
-      </header>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Encontre oportunidades e acompanhe suas candidaturas." />
+  <meta name="theme-color" content="#10243a" />
+  <title>Oportuniza — vagas e carreira</title>
+  <style>
+    :root{color-scheme:light;--ink:#14283d;--muted:#64748b;--brand:#176b87;--brand-dark:#10546b;--line:#dce6ed;--surface:#fff;--bg:#f3f7fa;--good:#176b4a;--bad:#a83232}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+    button,input{font:inherit}button{cursor:pointer}.shell{max-width:1120px;margin:auto;padding:24px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:10px 0 26px}
+    .brand{font-weight:850;font-size:1.35rem;letter-spacing:-.04em}.brand span{color:var(--brand)}
+    nav{display:flex;gap:10px;align-items:center;flex-wrap:wrap}nav button,.link-button{border:0;background:transparent;color:var(--brand-dark);font-weight:650;padding:9px 12px;border-radius:9px}
+    nav button:hover,.link-button:hover{background:#e2eef4}
+    .hero{background:linear-gradient(115deg,#10243a,#176b87);color:white;padding:clamp(28px,6vw,58px);border-radius:22px;box-shadow:0 16px 36px #10243a20}
+    .eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:.75rem;font-weight:800;color:#b8e2ee}
+    h1{font-size:clamp(2rem,5vw,3.25rem);line-height:1.08;letter-spacing:-.045em;max-width:700px;margin:12px 0}
+    .hero p{max-width:620px;color:#d8e8ef;margin:0}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}
+    .btn{border:0;border-radius:10px;padding:11px 16px;font-weight:750;background:var(--brand);color:white}
+    .btn:hover{background:var(--brand-dark)}.btn.secondary{background:white;color:var(--ink)}.btn.ghost{background:#e8f1f5;color:var(--brand-dark)}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .section-head{display:flex;justify-content:space-between;align-items:end;gap:16px;margin:34px 0 14px}
+    h2{font-size:1.45rem;margin:0;letter-spacing:-.025em}.muted{color:var(--muted)}
+    .layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:20px;align-items:start}
+    .jobs{display:grid;gap:12px}.job,.panel{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:20px;box-shadow:0 5px 16px #14283d08}
+    .job-top{display:flex;justify-content:space-between;gap:12px;align-items:start}.job h3{margin:0 0 5px;font-size:1.08rem}
+    .tag{display:inline-block;border-radius:999px;background:#e8f2f6;color:#24566a;padding:4px 9px;font-size:.78rem;font-weight:700}
+    .job p{margin:10px 0;color:var(--muted)}.job .btn{margin-top:8px}
+    .panel h2{font-size:1.15rem;margin-bottom:12px}.panel+.panel{margin-top:14px}
+    label{display:block;font-size:.88rem;font-weight:700;margin:12px 0 5px}
+    input{width:100%;border:1px solid #cbd8e1;border-radius:9px;padding:10px 11px;background:white;color:var(--ink)}
+    input:focus{outline:3px solid #176b8728;border-color:var(--brand)}
+    form .btn{width:100%;margin-top:14px}
+    .status{min-height:24px;margin:10px 0 0;font-size:.9rem}.status.error{color:var(--bad)}.status.success{color:var(--good)}
+    .application{padding:12px 0;border-top:1px solid var(--line)}.application:first-of-type{border-top:0}
+    .empty{padding:24px;text-align:center;color:var(--muted);background:#fff;border:1px dashed #cbd8e1;border-radius:14px}
+    .hidden{display:none!important}footer{text-align:center;color:var(--muted);font-size:.85rem;padding:32px 0 12px}
+    @media(max-width:800px){.layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.panel+.panel{margin-top:0}}
+    @media(max-width:540px){.shell{padding:15px}header{align-items:flex-start;flex-direction:column}.job-top{flex-direction:column}.section-head{align-items:start;flex-direction:column}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand">oportuniza<span>.</span></div>
+      <nav aria-label="Navegação principal">
+        <button type="button" id="nav-jobs">Explorar vagas</button>
+        <button type="button" id="nav-applications">Minhas candidaturas</button>
+        <button type="button" id="nav-account">Minha conta</button>
+      </nav>
+    </header>
 
-      <main>
-        <section id="hero">
-          <h2>Conectando empresas e candidatos</h2>
-          <p class="lead">Um template HTML limpo e acessível para começar a desenvolver a sua plataforma de recrutamento.</p>
+    <main>
+      <section class="hero">
+        <div class="eyebrow">Seu próximo passo começa aqui</div>
+        <h1>Oportunidades reais para construir seu futuro.</h1>
+        <p>Encontre vagas, candidate-se com sua conta e acompanhe suas candidaturas em um só lugar.</p>
+        <div class="actions">
+          <button class="btn secondary" type="button" id="hero-jobs">Ver oportunidades</button>
+          <button class="btn ghost" type="button" id="hero-account">Entrar ou criar conta</button>
+        </div>
+      </section>
+
+      <div class="section-head" id="jobs-heading">
+        <div><h2>Vagas disponíveis</h2><div class="muted">Oportunidades publicadas na plataforma</div></div>
+        <button class="btn ghost" type="button" id="refresh-jobs">Atualizar vagas</button>
+      </div>
+
+      <div class="layout">
+        <section aria-labelledby="jobs-heading">
+          <div id="jobs" class="jobs" aria-live="polite"><div class="empty">Carregando oportunidades…</div></div>
+          <section id="applications-section" class="hidden">
+            <div class="section-head"><div><h2>Minhas candidaturas</h2><div class="muted">Acompanhe as vagas às quais você se candidatou</div></div></div>
+            <div id="applications" class="panel" aria-live="polite"></div>
+          </section>
         </section>
 
-        <section class="grid" style="margin-top:24px">
-          <article class="card">
-            <h3 id="vagas">Vagas</h3>
-            <p class="lead">Publique e gerencie oportunidades de trabalho — filtros por cidade, área e tipo de contrato.</p>
-          </article>
+        <aside class="side" id="account">
+          <section class="panel" id="auth-panel">
+            <h2 id="auth-title">Acesse sua conta</h2>
+            <p class="muted" id="auth-description">Entre para se candidatar e acompanhar suas oportunidades.</p>
+            <form id="auth-form">
+              <div id="name-field" class="hidden"><label for="name">Nome completo</label><input id="name" name="name" autocomplete="name" maxlength="120" /></div>
+              <label for="email">E-mail</label><input id="email" name="email" type="email" autocomplete="email" required maxlength="254" />
+              <label for="password">Senha</label><input id="password" name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="128" />
+              <button class="btn" id="auth-submit" type="submit">Entrar</button>
+            </form>
+            <p class="status" id="auth-status" role="status" aria-live="polite"></p>
+            <button class="link-button" id="toggle-auth" type="button">Ainda não tem conta? Cadastre-se</button>
+          </section>
 
-          <article class="card">
-            <h3 id="empresas">Empresas</h3>
-            <p class="lead">Painel simples para empresas acompanharem candidaturas e processos seletivos.</p>
-          </article>
+          <section class="panel hidden" id="profile-panel">
+            <h2>Você está conectado</h2>
+            <p id="profile-name"></p>
+            <p class="muted" id="profile-email"></p>
+            <button class="btn ghost" id="logout" type="button">Sair da conta</button>
+          </section>
+          <section class="panel">
+            <h2>Como funciona</h2>
+            <p class="muted">Crie sua conta de candidato, explore as vagas e envie sua candidatura. O acesso de empresas ainda não está disponível nesta versão.</p>
+          </section>
+        </aside>
+      </div>
+    </main>
+    <footer>© <span id="year"></span> Oportuniza · Plataforma em desenvolvimento</footer>
+  </div>
 
-          <article class="card">
-            <h3 id="candidatos">Candidatos</h3>
-            <p class="lead">Crie perfis, envie candidaturas e acompanhe o status dos processos.</p>
-          </article>
-        </section>
+  <script>
+    // O token fica apenas em memória: ao atualizar a página, será necessário entrar novamente.
+    // O backend ainda não oferece sessão HttpOnly para o navegador.
+    let accessToken = null;
+    let currentUser = null;
+    let registerMode = false;
+    const $ = (id) => document.getElementById(id);
+    const jobsContainer = $('jobs');
 
-      </main>
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[char]);
+    }
 
-      <footer>
-        &copy; <span id="year">2026</span> Plataforma de Recrutamento — Template inicial
-      </footer>
-    </div>
+    function setStatus(message, type = '') {
+      const status = $('auth-status');
+      status.textContent = message;
+      status.className = 'status' + (type ? ' ' + type : '');
+    }
 
-    <script>
-      // Preenchimento dinâmico simples
-      document.getElementById('year').textContent = new Date().getFullYear();
-    </script>
-  </body>
+    async function api(route, options = {}) {
+      const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+      if (accessToken) headers.Authorization = 'Bearer ' + accessToken;
+      const response = await fetch('/api' + route, { ...options, headers });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message || 'Não foi possível concluir a solicitação.');
+      return payload;
+    }
+
+    function renderAccount() {
+      const connected = Boolean(accessToken && currentUser);
+      $('auth-panel').classList.toggle('hidden', connected);
+      $('profile-panel').classList.toggle('hidden', !connected);
+      if (connected) {
+        $('profile-name').textContent = currentUser.name;
+        $('profile-email').textContent = currentUser.email;
+      }
+    }
+
+    function renderJobs(jobs) {
+      if (!Array.isArray(jobs) || jobs.length === 0) {
+        jobsContainer.innerHTML = '<div class="empty">Nenhuma vaga disponível no momento. Volte em breve.</div>';
+        return;
+      }
+      jobsContainer.innerHTML = jobs.map((job) => {
+        const id = Number(job.id);
+        const validId = Number.isSafeInteger(id) && id > 0;
+        return '<article class="job">' +
+          '<div class="job-top"><div><h3>' + escapeHtml(job.title) + '</h3><div class="muted">' + escapeHtml(job.company) + ' · ' + escapeHtml(job.location) + '</div></div>' +
+          '<span class="tag">' + escapeHtml(job.typeLabel || job.type) + '</span></div>' +
+          '<p>' + escapeHtml(job.short || job.description || '') + '</p>' +
+          (validId ? '<button class="btn apply" type="button" data-job-id="' + id + '"' + (accessToken ? '' : ' title="Entre para se candidatar"') + '>Candidatar-se</button>' : '') +
+          '</article>';
+      }).join('');
+      jobsContainer.querySelectorAll('.apply').forEach((button) => {
+        button.addEventListener('click', () => applyToJob(Number(button.dataset.jobId)));
+      });
+    }
+
+    async function loadJobs() {
+      jobsContainer.innerHTML = '<div class="empty">Carregando oportunidades…</div>';
+      try { renderJobs(await api('/jobs')); }
+      catch (error) { jobsContainer.innerHTML = '<div class="empty">' + escapeHtml(error.message) + ' <button class="link-button" id="retry-jobs" type="button">Tentar novamente</button></div>'; $('retry-jobs')?.addEventListener('click', loadJobs); }
+    }
+
+    async function applyToJob(jobId) {
+      if (!accessToken) {
+        setStatus('Entre ou crie sua conta de candidato para se candidatar.', 'error');
+        $('account').scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+      try {
+        await api('/applications', { method: 'POST', body: JSON.stringify({ jobId }) });
+        setStatus('Candidatura enviada com sucesso.', 'success');
+        await loadApplications();
+      } catch (error) { setStatus(error.message, 'error'); }
+    }
+
+    async function loadApplications() {
+      if (!accessToken) return;
+      $('applications-section').classList.remove('hidden');
+      const container = $('applications');
+      container.textContent = 'Carregando candidaturas…';
+      try {
+        const items = await api('/applications');
+        container.innerHTML = items.length ? items.map((item) =>
+          '<div class="application"><strong>' + escapeHtml(item.jobTitle) + '</strong><div class="muted">' +
+          escapeHtml(item.company) + ' · candidatura #' + escapeHtml(item.id) + '</div></div>'
+        ).join('') : '<p class="muted">Você ainda não enviou candidaturas.</p>';
+      } catch (error) { container.textContent = error.message; }
+    }
+
+    $('auth-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      setStatus('Aguarde…');
+      const email = $('email').value.trim();
+      const password = $('password').value;
+      const payload = registerMode
+        ? { name: $('name').value.trim(), email, password, role: 'candidate' }
+        : { email, password };
+      if (registerMode && !payload.name) { setStatus('Informe seu nome completo.', 'error'); return; }
+      try {
+        const result = await api(registerMode ? '/register' : '/login', {
+          method: 'POST', body: JSON.stringify(payload)
+        });
+        accessToken = result.token;
+        currentUser = result.user;
+        renderAccount();
+        setStatus(registerMode ? 'Conta criada. Boas-vindas!' : 'Login realizado com sucesso.', 'success');
+        $('applications-section').classList.remove('hidden');
+        await loadApplications();
+        await loadJobs();
+      } catch (error) { setStatus(error.message, 'error'); }
+    });
+
+    function setRegisterMode(enabled) {
+      registerMode = enabled;
+      $('name-field').classList.toggle('hidden', !enabled);
+      $('name').required = enabled;
+      $('password').autocomplete = enabled ? 'new-password' : 'current-password';
+      $('auth-title').textContent = enabled ? 'Crie sua conta de candidato' : 'Acesse sua conta';
+      $('auth-description').textContent = enabled ? 'Cadastre-se para enviar e acompanhar candidaturas.' : 'Entre para se candidatar e acompanhar suas oportunidades.';
+      $('auth-submit').textContent = enabled ? 'Criar conta' : 'Entrar';
+      $('toggle-auth').textContent = enabled ? 'Já tem conta? Entrar' : 'Ainda não tem conta? Cadastre-se';
+      setStatus('');
+    }
+
+    $('toggle-auth').addEventListener('click', () => setRegisterMode(!registerMode));
+    $('logout').addEventListener('click', () => {
+      accessToken = null; currentUser = null;
+      $('applications-section').classList.add('hidden');
+      renderAccount(); setRegisterMode(false); setStatus('Você saiu da sua conta.', 'success'); loadJobs();
+    });
+    $('refresh-jobs').addEventListener('click', loadJobs);
+    $('nav-jobs').addEventListener('click', () => $('jobs-heading').scrollIntoView({ behavior: 'smooth' }));
+    $('hero-jobs').addEventListener('click', () => $('jobs-heading').scrollIntoView({ behavior: 'smooth' }));
+    $('nav-applications').addEventListener('click', () => {
+      if (accessToken) { loadApplications(); $('applications-section').scrollIntoView({ behavior: 'smooth' }); }
+      else { setStatus('Entre para visualizar suas candidaturas.', 'error'); $('account').scrollIntoView({ behavior: 'smooth' }); }
+    });
+    $('nav-account').addEventListener('click', () => $('account').scrollIntoView({ behavior: 'smooth' }));
+    $('hero-account').addEventListener('click', () => $('account').scrollIntoView({ behavior: 'smooth' }));
+    $('year').textContent = new Date().getFullYear();
+    renderAccount();
+    loadJobs();
+  </script>
+</body>
 </html>
