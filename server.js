@@ -20,6 +20,14 @@ fs.mkdirSync(DB_DIR, { recursive: true, mode: 0o700 });
 const DB_PATH = process.env.DATABASE_PATH || path.join(DB_DIR, 'database.sqlite');
 
 app.disable('x-powered-by');
+// Baseline response hardening; CSP requires a separate review of inline frontend assets.
+app.use((req, res, next) => {
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('X-Frame-Options', 'DENY');
+  res.set('Referrer-Policy', 'no-referrer');
+  if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');
+  next();
+});
 app.use(cors({
   origin(origin, callback) {
     if (!origin) return callback(null, true);
