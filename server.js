@@ -407,6 +407,14 @@ app.get('/', (req, res) => {
 
 app.use((req, res) => res.status(404).json({ message: 'Recurso não encontrado.' }));
 
+
+async function provisionCompany(email, companyName) {
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+  const company = typeof companyName === 'string' ? companyName.trim() : '';
+  if (!normalizedEmail || !company || company.length > 160) throw new Error('Informe e-mail existente e empresa com 1 a 160 caracteres.');
+  const result = await run('UPDATE users SET role = ?, companyName = ? WHERE email = ?', ['company', company, normalizedEmail]);
+  if (result.changes !== 1) throw new Error('Conta não encontrada. Cadastre a conta antes do provisionamento.');
+}
 function start() {
   return initializeDatabase().then(() => app.listen(PORT, () => {
     console.log(`Servidor iniciado em http://localhost:${PORT}`);
@@ -414,10 +422,13 @@ function start() {
 }
 
 if (require.main === module) {
-  start().catch((error) => {
+  const operation = process.argv[2] === '--provision-company'
+    ? initializeDatabase().then(() => provisionCompany(process.argv[3], process.argv[4])).finally(() => db.close())
+    : start();
+  operation.catch((error) => {
     console.error('Erro na inicialização do banco:', error.message);
     process.exitCode = 1;
   });
 }
 
-module.exports = { app, db, initializeDatabase, start };
+module.exports = { app, db, initializeDatabase, start, provisionCompany };
