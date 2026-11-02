@@ -55,6 +55,25 @@ async function registerCandidate() {
   return response.json();
 }
 
+test('SQLite enforces foreign-key constraints for applications', async () => {
+  const pragma = await new Promise((resolve, reject) => {
+    db.get('PRAGMA foreign_keys', (error, row) => error ? reject(error) : resolve(row));
+  });
+  assert.equal(pragma.foreign_keys, 1, 'foreign-key enforcement must be enabled on the connection');
+
+  await assert.rejects(
+    new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO applications (userId, jobId, jobTitle, company, name, email)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [-999, 1, 'Orphan application', 'Example Co', 'Invalid User', 'orphan@example.com'],
+        function (error) { error ? reject(error) : resolve(this.lastID); }
+      );
+    }),
+    (error) => error && error.code === 'SQLITE_CONSTRAINT'
+  );
+});
+
 test('health endpoint reports that the API is running', async () => {
   const response = await request('/api/health');
   assert.equal(response.status, 200);
