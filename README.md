@@ -83,6 +83,10 @@ Para os endpoints protegidos, envie `Authorization: Bearer <token>`. Os formatos
 
 Para buscar vagas, use os filtros opcionais `q` e `type` em `GET /api/jobs`. Por exemplo, `/api/jobs?q=remoto&type=fulltime` combina o texto com o tipo de contrato. A busca verifica título, empresa e localização. Os tipos aceitos são `fulltime`, `parttime`, `contract`, `internship` e `temporary`.
 
+A página inicial também oferece busca por cargo, empresa ou local e filtro por
+tipo de contrato. Use **Limpar** para voltar à lista completa. A busca consulta
+as vagas cadastradas neste projeto; ela não reúne vagas de outras plataformas.
+
 ## Segurança implementada na API
 
 - A aplicação exige `JWT_SECRET` configurado com pelo menos 32 caracteres.
