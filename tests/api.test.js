@@ -110,6 +110,25 @@ test('jobs can be filtered by search text and employment type', async () => {
   assert.equal(tooLong.status, 400);
 });
 
+test('jobs support location filters and bounded pagination metadata', async () => {
+  const response = await request('/api/jobs?location=remoto&limit=1&offset=0');
+  assert.equal(response.status, 200);
+  const jobs = await response.json();
+  assert.equal(jobs.length, 1);
+  assert.equal(response.headers.get('x-page-limit'), '1');
+  assert.equal(response.headers.get('x-page-offset'), '0');
+  assert.ok(Number(response.headers.get('x-total-count')) >= 1);
+  assert.ok(jobs[0].location.toLowerCase().includes('remoto'));
+
+  const invalidLimit = await request('/api/jobs?limit=101');
+  assert.equal(invalidLimit.status, 400);
+  const invalidOffset = await request('/api/jobs?offset=-1');
+  assert.equal(invalidOffset.status, 400);
+  const missingLocation = await request('/api/jobs?location=__no_location__');
+  assert.deepEqual(await missingLocation.json(), []);
+  assert.equal(missingLocation.headers.get('x-total-count'), '0');
+});
+
 test('saved jobs require authentication and remain isolated between candidates', async () => {
   assert.equal((await request('/api/saved-jobs')).status, 401);
   const alice = await candidateFixture();
