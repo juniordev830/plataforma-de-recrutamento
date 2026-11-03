@@ -349,12 +349,18 @@ app.post('/api/login', authAttemptLimiter, async (req, res) => {
 
 app.get('/api/jobs', async (req, res) => {
   try {
-    const { q, type } = req.query;
+    const { q, type, location, limit, offset } = req.query;
     const supportedTypes = ['fulltime', 'parttime', 'contract', 'internship', 'temporary'];
+    const selectedLimit = limit === undefined ? 50 : Number(limit);
+    const selectedOffset = offset === undefined ? 0 : Number(offset);
     if ((q !== undefined && (typeof q !== 'string' || q.length > 120)) ||
-        (type !== undefined && (typeof type !== 'string' || !supportedTypes.includes(type)))) {
-      return res.status(400).json({ message: 'Filtros de vagas inválidos.' });
+        (type !== undefined && (typeof type !== 'string' || !supportedTypes.includes(type))) ||
+        (location !== undefined && (typeof location !== 'string' || location.length > 120)) ||
+        !Number.isSafeInteger(selectedLimit) || selectedLimit < 1 || selectedLimit > 100 ||
+        !Number.isSafeInteger(selectedOffset) || selectedOffset < 0 || selectedOffset > 100000) {
+      return res.status(400).json({ message: 'Filtros ou paginação de vagas inválidos.' });
     }
+
     const conditions = [];
     const parameters = [];
     if (q && q.trim()) {
@@ -365,8 +371,18 @@ app.get('/api/jobs', async (req, res) => {
       conditions.push('type = ?');
       parameters.push(type);
     }
+    if (location && location.trim()) {
+      conditions.push("instr(lower(location), lower(?)) > 0");
+      parameters.push(location.trim());
+    }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-    const jobs = await all(`SELECT * FROM jobs ${where} ORDER BY id DESC`, parameters);
+    const [totalRow, jobs] = await Promise.all([
+      get(`SELECT COUNT(*) AS total FROM jobs ${where}`, parameters),
+      all(`SELECT * FROM jobs ${where} ORDER BY id DESC LIMIT ? OFFSET ?`, [...parameters, selectedLimit, selectedOffset])
+    ]);
+    res.set('X-Total-Count', String(totalRow.total));
+    res.set('X-Page-Limit', String(selectedLimit));
+    res.set('X-Page-Offset', String(selectedOffset));
     return res.json(jobs);
   } catch (error) {
     console.error('Erro ao listar vagas:', error);
