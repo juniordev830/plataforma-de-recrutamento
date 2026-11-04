@@ -238,7 +238,7 @@ test('protected endpoints reject duplicate and combined Authorization fields', a
     'Authorization', bearer,
     'authorization', 'Bearer invalid'
   ]);
-  assert.equal(duplicate.status, 401, 'duplicate raw headers must not authenticate');
+  assert.ok([400, 401].includes(duplicate.status), 'duplicate raw headers must be rejected by HTTP parser (400) or middleware (401)');
 
   const combined = await rawAuthorizationRequest('/api/applications', [
     'Authorization', bearer + ', Bearer invalid'
