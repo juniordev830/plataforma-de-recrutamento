@@ -218,8 +218,17 @@ function authAttemptLimiter(req, res, next) {
 }
 
 async function authMiddleware(req, res, next) {
+  // req.headers.authorization can discard duplicate headers depending on the Node
+  // runtime. Count raw fields to prevent proxies/clients disagreeing about credentials.
+  const rawHeaders = req.rawHeaders || [];
+  let authorizationCount = 0;
+  for (let i = 0; i < rawHeaders.length; i += 2) {
+    if (rawHeaders[i].toLowerCase() === 'authorization') authorizationCount += 1;
+  }
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (authorizationCount !== 1 || typeof authHeader !== 'string' ||
+      authHeader.length > 8192 || authHeader.includes(',') ||
+      !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Token ausente ou inválido.' });
   }
 
