@@ -1,0 +1,47 @@
+name: Interface no Chrome
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: python -m pip install selenium==4.38.0
+      - name: Verificar desktop e celular
+        run: |
+          PORT=8181 npm start >/tmp/web-server.log 2>&1 &
+          curl --retry 12 --retry-all-errors --retry-delay 1 -fsS http://localhost:8181/ -o /dev/null
+          mkdir -p capturas
+          python - <<'PYTEST'
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+          options = webdriver.ChromeOptions()
+          options.add_argument('--headless=new')
+          with webdriver.Chrome(options=options) as browser:
+              for width in (1440, 390):
+                  browser.execute_cdp_cmd('Emulation.setDeviceMetricsOverride', {
+                      'width': width, 'height': 900, 'deviceScaleFactor': 1, 'mobile': width < 500,
+                  })
+                  browser.get('http://localhost:8181/')
+                  wait = WebDriverWait(browser, 20)
+                  find = lambda element_id: browser.find_element(By.ID, element_id)
+                  wait.until(lambda b: b.find_element(By.CSS_SELECTOR, "#job-filter-form").is_displayed())
+                  browser.save_screenshot(f'capturas/interface-{width}.png')
+                  assert browser.execute_script('return document.documentElement.scrollWidth <= window.innerWidth')
+                  find('hero-jobs').click()
+                  find('job-search-text').send_keys('remoto')
+                  find('clear-job-filters').click()
+                  assert find('job-search-text').get_attribute('value') == ''
+          PYTEST
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: interface-chrome
+          path: capturas/

@@ -35,6 +35,11 @@
     input:focus,select:focus{outline:3px solid #176b8728;border-color:var(--brand)}
     form .btn{width:100%;margin-top:14px}
     .job-filters{display:grid;grid-template-columns:minmax(0,2fr) minmax(150px,1fr) auto auto;gap:10px;align-items:end;margin-bottom:14px}
+    .job-filters { padding: 16px; border-radius: 14px; background: #e7eff3; border: 1px solid #cfdde5; }
+    .job-filters > div, .layout > section { min-width: 0; }
+    .job :is(h3,p), .application { overflow-wrap: anywhere; }
+    button:focus-visible { outline: 3px solid #116983; outline-offset: 3px; }
+    .hero button:focus-visible { outline-color: white; }
     .job-filters label{margin-top:0}
     .job-filters .btn{width:auto;margin:0;min-height:46px}
     .status{min-height:24px;margin:10px 0 0;font-size:.9rem}.status.error{color:var(--bad)}.status.success{color:var(--good)}
@@ -42,6 +47,9 @@
     .empty{padding:24px;text-align:center;color:var(--muted);background:#fff;border:1px dashed #cbd8e1;border-radius:14px}
     .hidden{display:none!important}footer{text-align:center;color:var(--muted);font-size:.85rem;padding:32px 0 12px}
     @media(max-width:800px){.layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.panel+.panel{margin-top:0}}
+    @media(min-width:801px) and (max-width:1040px) {
+      .job-filters { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    }
     @media(max-width:540px){.shell{padding:15px}header{align-items:flex-start;flex-direction:column}.job-top{flex-direction:column}.section-head{align-items:start;flex-direction:column}.job-filters{grid-template-columns:1fr 1fr}.job-filters .search-field{grid-column:1/-1}.job-filters .type-field{grid-column:1/-1}}
   </style>
 </head>
