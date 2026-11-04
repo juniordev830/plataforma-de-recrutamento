@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const http = require('node:http');
+const { spawnSync } = require('node:child_process');
 
 const repoRoot = path.resolve(__dirname, '..');
 const tempDir = fs.mkdtempSync(path.join(repoRoot, '.test-tmp-'));
@@ -85,6 +86,19 @@ test('SQLite enforces foreign-key constraints for applications', async () => {
     }),
     (error) => error && error.code === 'SQLITE_CONSTRAINT'
   );
+});
+
+test('example JWT secret is rejected before the API can start', () => {
+  const result = spawnSync(process.execPath, ['-e', "require('./server.js')"], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      JWT_SECRET: 'replace-with-a-random-secret-at-least-32-characters-long'
+    },
+    encoding: 'utf8'
+  });
+  assert.notEqual(result.status, 0, 'public example secret must never be accepted');
+  assert.match(result.stderr, /JWT_SECRET inválido/);
 });
 
 test('health endpoint reports that the API is running', async () => {
