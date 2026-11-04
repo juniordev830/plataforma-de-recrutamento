@@ -98,7 +98,7 @@ conectar-se à mesma instalação da aplicação e entrar na mesma conta.
 
 ## Validação de cabeçalhos de autenticação
 
-As rotas protegidas aceitam exatamente **um** cabeçalho `Authorization: Bearer <token>`. Cabeçalhos duplicados são recusados pelo parser HTTP (400) ou pelo middleware (401), conforme o servidor; valores combinados separados por vírgula e cabeçalhos longos demais são recusados com HTTP 401. A validação também é testada com requisições HTTP brutas.
+As rotas protegidas aceitam exatamente **um** cabeçalho `Authorization: Bearer <token>`. Cabeçalhos duplicados são recusados pelo parser HTTP (400) ou pelo middleware (401), conforme o servidor; valores combinados separados por vírgula e cabeçalhos longos demais são rejeitados com 400 pelo parser ou 401 pelo middleware, dependendo do servidor. A validação também é testada com requisições HTTP brutas.
 
 Isso complementa, mas **não substitui**, os controles de autorização por usuário já existentes nas candidaturas e vagas salvas. O projeto continua demonstrativo e não está homologado para tratamento de dados reais sem revisão adicional.
 
