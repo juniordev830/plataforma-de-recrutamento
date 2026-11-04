@@ -11,8 +11,9 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET || JWT_SECRET.length < 32) {
-  throw new Error('JWT_SECRET é obrigatório e deve ter pelo menos 32 caracteres. Configure-o no arquivo .env.');
+const exampleJwtSecret = 'replace-with-a-random-secret-at-least-32-characters-long';
+if (!JWT_SECRET || JWT_SECRET.length < 32 || JWT_SECRET === exampleJwtSecret) {
+  throw new Error('JWT_SECRET inválido. Configure uma chave aleatória própria com pelo menos 32 caracteres no .env.');
 }
 // Keep personal data outside the directory served by Express.
 const DB_DIR = process.env.DATABASE_DIR || path.join(os.homedir(), '.plataforma-de-recrutamento');
