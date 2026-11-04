@@ -25,7 +25,7 @@ jobs:
           options = webdriver.ChromeOptions()
           options.add_argument('--headless=new')
           with webdriver.Chrome(options=options) as browser:
-              for width in (1440, 390):
+              for width in (1440, 900, 390):
                   browser.execute_cdp_cmd('Emulation.setDeviceMetricsOverride', {
                       'width': width, 'height': 900, 'deviceScaleFactor': 1, 'mobile': width < 500,
                   })
