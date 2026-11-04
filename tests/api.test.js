@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
+const http = require('node:http');
 
 const repoRoot = path.resolve(__dirname, '..');
 const tempDir = fs.mkdtempSync(path.join(repoRoot, '.test-tmp-'));
@@ -206,6 +207,48 @@ test('public registration cannot grant privileged company or recruiter roles', a
   const candidate = await registerCandidate();
   assert.equal(candidate.user.role, 'candidate');
   assert.equal(candidate.user.companyName, '');
+});
+
+async function rawAuthorizationRequest(route, rawHeaders) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port: server.address().port,
+      path: route,
+      method: 'GET',
+      headers: rawHeaders
+    }, (res) => {
+      res.resume();
+      res.on('end', () => resolve({ status: res.statusCode }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+test('protected endpoints reject duplicate and combined Authorization fields', async () => {
+  const candidate = await candidateFixture();
+  const bearer = 'Bearer ' + candidate.token;
+  const valid = await request('/api/applications', {
+    headers: { authorization: bearer }
+  });
+  assert.equal(valid.status, 200, 'single valid header must remain supported');
+
+  const duplicate = await rawAuthorizationRequest('/api/applications', [
+    'Authorization', bearer,
+    'authorization', 'Bearer invalid'
+  ]);
+  assert.equal(duplicate.status, 401, 'duplicate raw headers must not authenticate');
+
+  const combined = await rawAuthorizationRequest('/api/applications', [
+    'Authorization', bearer + ', Bearer invalid'
+  ]);
+  assert.equal(combined.status, 401);
+
+  const huge = await rawAuthorizationRequest('/api/applications', [
+    'Authorization', 'Bearer ' + 'x'.repeat(8193)
+  ]);
+  assert.equal(huge.status, 401);
 });
 
 test('protected endpoints reject missing authentication', async () => {
