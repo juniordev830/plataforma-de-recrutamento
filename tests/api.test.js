@@ -257,12 +257,12 @@ test('protected endpoints reject duplicate and combined Authorization fields', a
   const combined = await rawAuthorizationRequest('/api/applications', [
     'Authorization', bearer + ', Bearer invalid'
   ]);
-  assert.equal(combined.status, 401);
+  assert.ok([400, 401].includes(combined.status), 'combined authentication must be rejected by parser or application');
 
   const huge = await rawAuthorizationRequest('/api/applications', [
     'Authorization', 'Bearer ' + 'x'.repeat(8193)
   ]);
-  assert.equal(huge.status, 401);
+  assert.ok([400, 401].includes(huge.status), 'huge authentication must be rejected by parser or application');
 });
 
 test('protected endpoints reject missing authentication', async () => {
