@@ -96,6 +96,12 @@ As vagas ficam vinculadas à conta no banco SQLite da aplicação; sair do
 navegador não as apaga. Para acessá-las em outro dispositivo, é preciso
 conectar-se à mesma instalação da aplicação e entrar na mesma conta.
 
+## Validação de cabeçalhos de autenticação
+
+As rotas protegidas aceitam exatamente **um** cabeçalho `Authorization: Bearer <token>`. Cabeçalhos duplicados, valores combinados separados por vírgula e cabeçalhos longos demais são recusados com HTTP 401. A validação também é testada com requisições HTTP brutas.
+
+Isso complementa, mas **não substitui**, os controles de autorização por usuário já existentes nas candidaturas e vagas salvas. O projeto continua demonstrativo e não está homologado para tratamento de dados reais sem revisão adicional.
+
 ## Segurança implementada na API
 
 - A aplicação exige `JWT_SECRET` configurado com pelo menos 32 caracteres.
