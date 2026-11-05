@@ -18,7 +18,7 @@ const testDatabasePath = path.join(os.tmpdir(), `recruitment-test-${randomUUID()
 process.env.DATABASE_PATH = testDatabasePath;
 
 // Load a temporary server copy and keep the test database in the OS temp directory.
-const { app, db, initializeDatabase, provisionCompany } = require(path.join(tempDir, 'server.js'));
+const { app, db, initializeDatabase, provisionCompany, resolveBindHost } = require(path.join(tempDir, 'server.js'));
 
 let server;
 let baseUrl;
@@ -99,6 +99,14 @@ test('example JWT secret is rejected before the API can start', () => {
   });
   assert.notEqual(result.status, 0, 'public example secret must never be accepted');
   assert.match(result.stderr, /JWT_SECRET inválido/);
+});
+
+test('network binding defaults to loopback unless an address is explicitly supplied', () => {
+  assert.equal(resolveBindHost(undefined), '127.0.0.1');
+  assert.equal(resolveBindHost(''), '127.0.0.1');
+  assert.equal(resolveBindHost('   '), '127.0.0.1');
+  assert.equal(resolveBindHost('127.0.0.1'), '127.0.0.1');
+  assert.equal(resolveBindHost(' 0.0.0.0 '), '0.0.0.0');
 });
 
 test('health endpoint reports that the API is running', async () => {
