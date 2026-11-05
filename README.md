@@ -57,7 +57,7 @@ Inicie o servidor:
 npm start
 ```
 
-A API e a interface servida pelo Express ficam, por padrão, em `http://localhost:3001`.
+A API e a interface servida pelo Express ficam, por padrão, em `http://127.0.0.1:3001` (disponíveis também como `localhost` no mesmo computador). O servidor escuta **somente na interface local** por padrão, não em toda a rede. Para vincular explicitamente a outra interface, configure `HOST` (por exemplo, `HOST=0.0.0.0` em um ambiente de implantação controlado). Fazer isso pode expor os endpoints na rede; só considere após revisar TLS, autenticação, armazenamento de dados e controles de acesso.
 
 ## Testes e validação
 
