@@ -10,6 +10,11 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+// Local-only by default. Public binds require an explicit deployment decision.
+function resolveBindHost(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : '127.0.0.1';
+}
+const HOST = resolveBindHost(process.env.HOST);
 const JWT_SECRET = process.env.JWT_SECRET;
 const exampleJwtSecret = 'replace-with-a-random-secret-at-least-32-characters-long';
 if (!JWT_SECRET || JWT_SECRET.length < 32 || JWT_SECRET === exampleJwtSecret) {
@@ -564,8 +569,8 @@ async function provisionCompany(email, companyName) {
   if (result.changes !== 1) throw new Error('Conta não encontrada. Cadastre a conta antes do provisionamento.');
 }
 function start() {
-  return initializeDatabase().then(() => app.listen(PORT, () => {
-    console.log(`Servidor iniciado em http://localhost:${PORT}`);
+  return initializeDatabase().then(() => app.listen(PORT, HOST, () => {
+    console.log(`Servidor iniciado em http://${HOST}:${PORT}`);
   }));
 }
 
@@ -579,4 +584,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { app, db, initializeDatabase, start, provisionCompany };
+module.exports = { app, db, initializeDatabase, start, provisionCompany, resolveBindHost };
