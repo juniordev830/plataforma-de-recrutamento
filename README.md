@@ -111,14 +111,16 @@ Estas medidas melhoram a segurança básica, mas não representam uma auditoria 
 ## Estrutura
 
 ```text
-server.js              # API Express e acesso SQLite
-package.json           # Dependências e comandos
-.env.example           # Modelo de configuração
-script.js              # Interações do frontend
-styles.css             # Estilos
- docs/                 # Documentação de arquitetura, uso e API
-tests/api.test.js      # Testes da API
-.github/workflows/ci.yml # Verificações automáticas
+server.js                       # API Express e acesso SQLite
+index.html                      # Interface HTML, CSS e JavaScript integrados
+package.json                    # Dependências e comandos
+.env.example                    # Modelo de configuração
+docs/                           # Documentação de arquitetura, uso e API
+tests/api.test.js               # Testes da API
+tests/frontend.test.js          # Testes da interface
+tests/documentation.test.js     # Consistência dos caminhos documentados
+.github/workflows/ci.yml       # Testes e auditoria de dependências
+.github/workflows/interface-chrome.yml # Validação visual Chrome (PR de interface)
 ```
 
 ## Auditoria técnica
