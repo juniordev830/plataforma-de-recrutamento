@@ -111,15 +111,19 @@ Estas medidas melhoram a segurança básica, mas não representam uma auditoria 
 ## Estrutura
 
 ```text
-server.js              # API Express e acesso SQLite
-package.json           # Dependências e comandos
-.env.example           # Modelo de configuração
-script.js              # Interações do frontend
-styles.css             # Estilos
- docs/                 # Documentação de arquitetura, uso e API
-tests/api.test.js      # Testes da API
-.github/workflows/ci.yml # Verificações automáticas
+server.js                  # API Express e persistência SQLite
+index.html                 # Interface, estilos e JavaScript integrados
+package.json               # Dependências e comandos npm
+.env.example               # Modelo de variáveis de ambiente
+docs/                      # Guias, arquitetura e documentação técnica
+tests/api.test.js          # Testes automatizados da API
+tests/frontend.test.js     # Testes automatizados do frontend
+.github/workflows/ci.yml   # Verificações automáticas no GitHub Actions
 ```
+
+## Guia de uso atualizado
+
+O passo a passo da aplicação atual está em [`docs/guia-de-uso.md`](docs/guia-de-uso.md), incluindo instalação, cadastro de candidatos, vagas salvas, candidaturas e diagnóstico de erros HTTP 401/403. A interface depende do servidor Express; não basta abrir `index.html` como arquivo local.
 
 ## Auditoria técnica
 
