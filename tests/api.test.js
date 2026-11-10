@@ -86,6 +86,24 @@ test('SQLite enforces foreign-key constraints for applications', async () => {
   );
 });
 
+test('API devolve erros JSON para payload malformado ou grande demais', async () => {
+  const malformed = await request('/api/login', {
+    method: 'POST',
+    body: '{"email":'
+  });
+  assert.equal(malformed.status, 400);
+  assert.match(malformed.headers.get('content-type') || '', /application\/json/);
+  assert.match((await malformed.json()).message, /JSON inválido/);
+
+  const oversized = await request('/api/login', {
+    method: 'POST',
+    body: JSON.stringify({ note: 'x'.repeat(1_100_000) })
+  });
+  assert.equal(oversized.status, 413);
+  assert.match(oversized.headers.get('content-type') || '', /application\/json/);
+  assert.match((await oversized.json()).message, /limite/);
+});
+
 test('health endpoint reports that the API is running', async () => {
   const response = await request('/api/health');
   assert.equal(response.status, 200);
