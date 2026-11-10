@@ -39,6 +39,18 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
+// Return predictable JSON errors for malformed or oversized requests.
+// Without this handler, Express sends its default HTML error page to API clients.
+app.use((error, req, res, next) => {
+  if (error?.type === 'entity.parse.failed') {
+    return res.status(400).json({ message: 'JSON inválido no corpo da requisição.' });
+  }
+  if (error?.type === 'entity.too.large') {
+    return res.status(413).json({ message: 'Corpo da requisição excede o limite permitido.' });
+  }
+  return next(error);
+});
+
 const db = new sqlite3.Database(DB_PATH, (err) => {
   if (err) {
     console.error('Erro ao abrir banco SQLite:', err.message);
