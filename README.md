@@ -141,3 +141,7 @@ Consulte [`docs/AUDITORIA_E_PLANO_DE_MELHORIAS.md`](docs/AUDITORIA_E_PLANO_DE_ME
 João Junior — estudante de Engenharia de Software, construindo projetos práticos de backend e aplicações web.
 
 GitHub: https://github.com/juniordev830
+
+## Validação e manutenção
+
+Para revisar alterações neste projeto, consulte o [guia técnico de validação](docs/GUIA_DE_VALIDACAO.md), com comandos, cenários de regressão e próximos incrementos.
