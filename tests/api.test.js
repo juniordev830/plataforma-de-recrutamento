@@ -147,6 +147,24 @@ test('jobs support location filters and bounded pagination metadata', async () =
   assert.equal(missingLocation.headers.get('x-total-count'), '0');
 });
 
+test('job pagination rejects values outside the decimal query format', async () => {
+  for (const query of ['limit=1e1', 'limit=0x10', 'offset=', 'offset=%20', 'limit=1&limit=2']) {
+    const response = await request(`/api/jobs?${query}`);
+    assert.equal(response.status, 400, query);
+  }
+});
+
+test('a permitted browser origin can read the jobs pagination headers', async () => {
+  const origin = 'http://localhost:5173';
+  const response = await request('/api/jobs?limit=1', { headers: { origin } });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('access-control-allow-origin'), origin);
+  const exposed = response.headers.get('access-control-expose-headers') || '';
+  assert.deepEqual(exposed.toLowerCase().split(',').map(value => value.trim()).sort(),
+    ['x-page-limit', 'x-page-offset', 'x-total-count']);
+  assert.equal(response.headers.get('x-page-limit'), '1');
+});
+
 test('saved jobs require authentication and remain isolated between candidates', async () => {
   assert.equal((await request('/api/saved-jobs')).status, 401);
   const alice = await candidateFixture();
