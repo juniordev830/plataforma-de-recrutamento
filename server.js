@@ -29,6 +29,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use(cors({
+  exposedHeaders: ['X-Total-Count', 'X-Page-Limit', 'X-Page-Offset'],
   origin(origin, callback) {
     if (!origin) return callback(null, true);
     const allowed = (process.env.CORS_ORIGIN || 'http://localhost:3001,http://127.0.0.1:3001,http://localhost:5173,http://127.0.0.1:5173')
@@ -359,12 +360,17 @@ app.post('/api/login', authAttemptLimiter, async (req, res) => {
   }
 });
 
+function parsePageParameter(value, fallback) {
+  if (value === undefined) return fallback;
+  return typeof value === 'string' && /^[0-9]+$/.test(value) ? Number(value) : NaN;
+}
+
 app.get('/api/jobs', async (req, res) => {
   try {
     const { q, type, location, limit, offset } = req.query;
     const supportedTypes = ['fulltime', 'parttime', 'contract', 'internship', 'temporary'];
-    const selectedLimit = limit === undefined ? 50 : Number(limit);
-    const selectedOffset = offset === undefined ? 0 : Number(offset);
+    const selectedLimit = parsePageParameter(limit, 50);
+    const selectedOffset = parsePageParameter(offset, 0);
     if ((q !== undefined && (typeof q !== 'string' || q.length > 120)) ||
         (type !== undefined && (typeof type !== 'string' || !supportedTypes.includes(type))) ||
         (location !== undefined && (typeof location !== 'string' || location.length > 120)) ||
