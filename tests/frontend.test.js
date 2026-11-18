@@ -211,3 +211,40 @@ test('visitante é orientado a entrar antes de salvar uma vaga', async () => {
   assert.equal(page.requests.length, 1);
   assert.match(page.element('jobs-status').textContent, /Entre ou crie sua conta/);
 });
+
+test('resposta de login anterior não reabre a sessão depois de sair', async () => {
+  const page = createPage();
+  page.reply(0, []);
+  await flush();
+  const submit = page.element('auth-form').handlers.submit;
+  const first = submit({ preventDefault() {} });
+  const latest = submit({ preventDefault() {} });
+  page.reply(2, { token: 'current', user: { id: 2, name: 'Ana', email: 'ana@example.com', role: 'candidate' } });
+  await flush();
+  assert.equal(page.element('profile-name').textContent, 'Ana');
+  page.element('logout').handlers.click();
+
+  page.reply(1, { token: 'old', user: { id: 1, name: 'Bruno', email: 'bruno@example.com', role: 'candidate' } });
+  page.reply(3, []);
+  page.reply(4, []);
+  page.reply(5, []);
+  await Promise.all([first, latest]);
+  assert.equal(page.element('profile-panel').classList.contains('hidden'), true);
+  assert.equal(page.element('profile-name').textContent, '');
+  assert.match(page.element('auth-status').textContent, /saiu da sua conta/);
+  assert.equal(page.requests.length, 6);
+});
+
+test('resultado antigo não substitui a lista atual de candidaturas', async () => {
+  const page = createPage();
+  await loginCandidate(page, { id: 4, title: 'Vaga', company: 'Exemplo', location: 'Natal', type: 'fulltime' });
+  const openApplications = page.element('nav-applications').handlers.click;
+  openApplications();
+  openApplications();
+  const newest = page.requests.findLastIndex(request => request.url === '/api/applications');
+  page.reply(newest, [{ id: 2, jobTitle: 'Vaga atual', company: 'Exemplo' }]);
+  await flush();
+  page.reply(newest - 1, []);
+  await flush();
+  assert.match(page.element('applications').innerHTML, /Vaga atual/);
+});
