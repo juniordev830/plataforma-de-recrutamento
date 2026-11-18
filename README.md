@@ -18,7 +18,7 @@ API e interface demonstrativa para conectar candidatos, empresas e recrutadores.
 ## Tecnologias
 
 - Node.js e Express
-- SQLite (`sqlite3`)
+- SQLite (`@vscode/sqlite3`)
 - JSON Web Tokens (`jsonwebtoken`)
 - `bcryptjs`
 - Node.js Test Runner (`node:test`)
@@ -27,6 +27,7 @@ API e interface demonstrativa para conectar candidatos, empresas e recrutadores.
 ## Requisitos
 
 - Node.js 18 ou superior
+- Python 3 e ferramentas de compilação C/C++ para instalar o driver SQLite. No Windows, use o Visual Studio Build Tools com o suporte a C++.
 - npm
 
 ## Instalação local

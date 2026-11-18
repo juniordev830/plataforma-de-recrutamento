@@ -4,7 +4,7 @@
 
 - **Runtime:** Node.js 18+
 - **HTTP:** Express
-- **Banco:** SQLite por meio de `sqlite3`
+- **Banco:** SQLite por meio de `@vscode/sqlite3`. O driver é compilado durante a instalação, usando Python 3 e ferramentas de compilação C/C++.
 - **Autenticação:** JWT com expiração, emissor e audiência
 - **Senhas:** hash com `bcryptjs`
 - **Frontend:** HTML, CSS e JavaScript, com token da sessão mantido em memória
