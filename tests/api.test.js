@@ -82,7 +82,7 @@ test('SQLite enforces foreign-key constraints for applications', async () => {
         function (error) { error ? reject(error) : resolve(this.lastID); }
       );
     }),
-    (error) => error && error.code === 'SQLITE_CONSTRAINT'
+    { code: 'SQLITE_CONSTRAINT_FOREIGNKEY' }
   );
 });
 

@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose();
+const sqlite3 = require('@vscode/sqlite3').verbose();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
@@ -477,7 +477,8 @@ app.put('/api/saved-jobs/:jobId', authMiddleware, requireCandidate, async (req, 
     `, [req.user.id, jobId]);
     return res.json({ jobId, saved: true });
   } catch (error) {
-    if (error.code === 'SQLITE_CONSTRAINT' && /FOREIGN KEY constraint failed/.test(error.message)) {
+    if (error.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' ||
+        (error.code === 'SQLITE_CONSTRAINT' && /FOREIGN KEY constraint failed/.test(error.message))) {
       return res.status(404).json({ message: 'Vaga não encontrada.' });
     }
     console.error('Erro ao salvar vaga:', error.message);
@@ -523,7 +524,8 @@ app.post('/api/applications', authMiddleware, async (req, res) => {
     const created = await get('SELECT * FROM applications WHERE id = ?', [result.id]);
     return res.status(201).json(created);
   } catch (error) {
-    if (error.code === 'SQLITE_CONSTRAINT' && /UNIQUE constraint failed/.test(error.message)) {
+    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+        (error.code === 'SQLITE_CONSTRAINT' && /UNIQUE constraint failed/.test(error.message))) {
       return res.status(409).json({ message: 'Você já se candidatou a esta vaga.' });
     }
     console.error('Erro ao salvar candidatura:', error.message);
