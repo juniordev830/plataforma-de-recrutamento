@@ -35,7 +35,7 @@ API e interface demonstrativa para conectar candidatos, empresas e recrutadores.
 ```bash
 git clone https://github.com/juniordev830/plataforma-de-recrutamento.git
 cd plataforma-de-recrutamento
-npm install
+npm ci
 ```
 
 Crie seu arquivo `.env` a partir do exemplo:
@@ -66,6 +66,8 @@ A API e a interface servida pelo Express ficam, por padrão, em `http://localhos
 npm test
 node --check server.js
 ```
+
+Para testar o fluxo no Chromium, execute `npx playwright install chromium` e `npm run test:e2e`. O teste cria uma vaga pela API de empresa e, pela interface, verifica o cadastro, a busca, as vagas salvas, a candidatura e o histórico.
 
 Os testes usam um banco SQLite temporário e não devem alterar seu banco local.
 

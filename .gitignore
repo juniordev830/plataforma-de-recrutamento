@@ -5,3 +5,5 @@ database.sqlite
 npm-debug.log*
 .DS_Store
 .test-tmp-*/
+playwright-report/
+test-results/
