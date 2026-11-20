@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const path = require('path');
 const os = require('node:os');
 const fs = require('node:fs');
+const { createHash } = require('node:crypto');
 require('dotenv').config();
 
 const app = express();
@@ -557,10 +558,33 @@ app.get('/api/applications', authMiddleware, async (req, res) => {
 
 app.use('/api', (req, res) => res.status(404).json({ message: 'Endpoint da API não encontrado.' }));
 
-// This project currently has a self-contained index.html. Do not mount the
-// repository root as a static directory: it contains source code and config.
+// Keep the page self-contained while allowing only its exact inline script/style.
+// No wildcard or 'unsafe-inline': injected markup cannot run arbitrary scripts.
+const indexPath = path.join(__dirname, 'index.html');
+const indexSource = fs.readFileSync(indexPath, 'utf8');
+function inlineBlockHashes(tag) {
+  const tagRegex = new RegExp('<' + tag + '(?:\\s[^>]*)?>([\\s\\S]*?)<\\/' + tag + '>', 'gi');
+  return [...indexSource.matchAll(tagRegex)].map((match) =>
+    "'sha256-" + createHash('sha256').update(match[1], 'utf8').digest('base64') + "'"
+  );
+}
+const pageCsp = [
+  "default-src 'none'",
+  "script-src 'self' " + inlineBlockHashes('script').join(' '),
+  "style-src 'self' " + inlineBlockHashes('style').join(' '),
+  "connect-src 'self'",
+  "img-src 'self' data:",
+  "font-src 'self'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "object-src 'none'"
+].join('; ');
+
+// Never mount the repository root: it contains source code and configuration.
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.set('Content-Security-Policy', pageCsp);
+  res.sendFile(indexPath);
 });
 
 app.use((req, res) => res.status(404).json({ message: 'Recurso não encontrado.' }));
