@@ -1,137 +1,84 @@
-# Guia de Uso
+# Guia de uso — Oportuniza (versão atual)
 
-## 1. Introdução
+Este guia descreve a aplicação **que existe neste repositório atualmente**: interface em `index.html`, servidor Node.js/Express em `server.js` e persistência SQLite. Ele substitui as instruções antigas que mencionavam páginas independentes como `vagas.html`, `login.html` ou armazenamento de contas no `localStorage`.
 
-Este guia apresenta como explorar e testar o protótipo da Plataforma de Recrutamento. O objetivo é facilitar a navegação e demonstrar o funcionamento principal do sistema de maneira simples e objetiva.
+> **Status:** projeto de portfólio em desenvolvimento. Não utilizar com dados reais sensíveis nem expor publicamente sem revisão e testes adicionais.
 
-## 2. Requisitos para uso
+## 1. Preparar o ambiente
 
-- navegador atualizado;
-- acesso à pasta do projeto localmente;
-- servidor local opcional.
-
-## 3. Como executar o projeto
-
-### Método 1: abrir diretamente
-
-1. Abra a pasta do projeto em seu computador;
-2. Clique em `index.html`;
-3. O navegador abrirá a interface inicial.
-
-### Método 2: executar um servidor local
-
-Com Python:
+Instale **Node.js 18 ou superior** e npm. No terminal, a partir da pasta do projeto:
 
 ```bash
-cd plataforma-de-recrutamento
-python -m http.server 8000
+npm install
 ```
 
-Depois acesse:
+Crie `.env` a partir de `.env.example`:
 
-```text
-http://localhost:8000
+- **Windows PowerShell:** `Copy-Item .env.example .env`
+- **Linux/macOS:** `cp .env.example .env`
+
+Edite o arquivo `.env` e substitua `JWT_SECRET` por um segredo aleatório com **pelo menos 32 caracteres**. Nunca envie seu `.env` para o Git.
+
+Inicie a aplicação:
+
+```bash
+npm start
 ```
 
-## 4. Navegando pelas páginas
+Abra **http://localhost:3001**. A interface e a API são servidas pelo mesmo processo Express. **Não abra `index.html` diretamente pelo navegador nem use `python -m http.server` como substituto da API**: cadastro, login, vagas e candidaturas dependem do backend.
 
-### Página inicial
+Para confirmar que o servidor responde, abra **http://localhost:3001/api/health**. A resposta deve incluir `"ok": true`.
 
-Apresenta a proposta da plataforma e página principal com destaque para as funcionalidades.
+## 2. Explorar oportunidades
 
-### Página de vagas
+1. Abra a página inicial.
+2. Consulte a seção **Vagas disponíveis**.
+3. Use o campo de pesquisa e o filtro **Tipo de contrato**; clique em **Buscar**.
+4. Use **Limpar** para restaurar a lista completa.
 
-A página `vagas.html` mostra oportunidades disponíveis. O usuário pode:
+Essas vagas vêm do banco SQLite da aplicação (inclusive exemplos adicionados à base vazia). **Não são vagas coletadas automaticamente de outras plataformas.**
 
-- buscar por palavra-chave;
-- filtrar por cidade ou local;
-- escolher tipos de contratação;
-- visualizar detalhes resumidos da vaga.
+## 3. Criar conta e fazer login
 
-### Página de empresas
+1. Na seção **Acesse sua conta**, selecione **Ainda não tem conta? Cadastre-se**.
+2. Informe nome, e-mail válido e senha entre 8 e 128 caracteres.
+3. Depois do cadastro ou login, as opções de candidatura e de vagas salvas estarão disponíveis à conta de candidato.
+4. Para encerrar a sessão no navegador, clique em **Sair da conta**.
 
-A página `empresas.html` destaca parceiros da plataforma. Esse conteúdo foi modelado para exemplificar empresas em diferentes segmentos.
+**Importante:** o cadastro público cria **apenas candidatos**. Contas de empresas/recrutadores não são liberadas pelo formulário; elas exigem provisionamento administrativo documentado em [PROVISIONAMENTO.md](PROVISIONAMENTO.md). A interface atual não oferece painel completo de recrutador.
 
-### Página do candidato
+## 4. Salvar vagas e enviar candidaturas
 
-Na página `candidatos.html`, o usuário pode:
+- Clique em **Salvar vaga** para associar a vaga à sua conta. Acesse **Vagas salvas** para vê-la ou removê-la.
+- Clique em **Candidatar-se** após entrar como candidato. O servidor usa o identificador da vaga e os dados da conta autenticada.
+- Acesse **Minhas candidaturas** para consultar os registros da sua conta.
+- A plataforma evita candidaturas duplicadas para a mesma vaga e candidato.
 
-- preencher nome e e-mail;
-- escrever um resumo profissional;
-- salvar o perfil localmente;
-- verificar candidaturas realizadas.
+As vagas salvas e candidaturas ficam no **SQLite do servidor**, não somente no navegador. O token do login fica **apenas em memória**, de modo que atualizar a página exige entrar novamente. Tokens da API expiram em aproximadamente duas horas.
 
-### Login e cadastro
+## 5. Erros comuns e como verificar
 
-A página `login.html` permite acesso ao sistema. A página `register.html` permite criar conta com papéis distintos: candidato, empresa e recrutador.
+| Sintoma | Causa provável | Ação recomendada |
+| --- | --- | --- |
+| `401 Token ausente ou inválido` | Rota protegida acessada sem `Authorization: Bearer <token>` | Entre na conta e envie o token na requisição; no site, faça login novamente |
+| `401 Token inválido ou expirado` | Sessão expirada ou token incorreto | Faça login novamente para obter outro token |
+| `401 Credenciais inválidas` | E-mail ou senha não conferem | Verifique os dados e cadastre a conta caso necessário |
+| `403` em ação restrita | Tipo de conta sem permissão | Use a conta correta; publicar vaga requer conta empresarial provisionada |
+| `429 Muitas tentativas` | Limite de autenticações excedido | Aguarde o intervalo indicado antes de tentar novamente |
+| Aplicação não inicia | `JWT_SECRET` ausente ou curto | Revise o `.env` e reinicie `npm start` |
+| Página não carrega | Servidor desligado ou porta diferente | Confirme `npm start`, `PORT` e `/api/health` |
+| Bloqueio CORS em outro frontend | Origem do navegador não autorizada | Configure a origem confiável em `CORS_ORIGIN` no servidor |
+| Vagas não aparecem | Erro da API ou banco | Confira `/api/health`, terminal do servidor e conexão com SQLite |
 
-### Dashboard
+O banco, por padrão, é criado em `~/.plataforma-de-recrutamento/database.sqlite`, **fora da pasta pública**. Se precisar de um caminho diferente, consulte as variáveis `DATABASE_DIR` e `DATABASE_PATH` em [TECNICO.md](TECNICO.md).
 
-A página `dashboard.html` exibe conteúdo adaptado ao perfil logado.
+## 6. Testes e documentação
 
-## 5. Como criar conta
+```bash
+npm test
+node --check server.js
+```
 
-1. Acesse `register.html`;
-2. Selecione o tipo de conta;
-3. Informe nome, e-mail, senha e empresa se necessário;
-4. Confirme o cadastro;
-5. O sistema salva o usuário e redireciona para o dashboard.
+Os testes usam uma base temporária, separada do banco local de uso normal. Para informações detalhadas sobre rotas, autenticação e configuração, consulte [TECNICO.md](TECNICO.md). Para instalação, consulte também o [README principal](../README.md).
 
-## 6. Como fazer login
-
-1. Acesse `login.html`;
-2. Informe e-mail e senha;
-3. O sistema valida os dados;
-4. O usuário entra no dashboard.
-
-## 7. Como candidatar-se
-
-1. Abra a página de vagas;
-2. Clique em "Candidatar-se" em uma vaga desejada;
-3. O sistema verifica se o usuário está autenticado como candidato;
-4. Informe os dados solicitados;
-5. A candidatura será registrada no navegador.
-
-## 8. Como visualizar as candidaturas
-
-1. Acesse a página de candidatos;
-2. Observe a seção "Minhas candidaturas";
-3. A lista será exibida com dados do candidato e da vaga.
-
-## 9. Dados locais e uso do navegador
-
-O sistema usa `localStorage` para manter:
-
-- informações do perfil do usuário;
-- usuários cadastrados;
-- histórico de candidaturas;
-- sessão atual autenticada.
-
-Importante:
-- esses dados ficam armazenados no navegador usado;
-- em ambiente de navegação privada ou limpeza de cache, os dados podem ser perdidos;
-- em produção, o ideal é substituir por banco de dados real e backend seguro.
-
-## 10. Dicas de uso
-
-- teste diferentes termos nos filtros para validar a busca;
-- preencha um perfil realista para entender o comportamento;
-- use o protótipo para validar UX antes de evoluir para um sistema completo;
-- combine o fluxo do site com apresentações de stakeholders e testes de usabilidade.
-
-## 11. Observações importantes
-
-Este é um protótipo didático e demonstrativo. A aplicação não substitui um sistema de recrutamento completo, mas oferece uma base funcional para demonstração, validação de layouts e apresentação do fluxo de seleção.
-
-## 12. Próximos passos sugeridos
-
-- integrar um banco de dados real;
-- autenticar usuários com segurança;
-- criar painel administrativo;
-- conectar com APIs de cadastro e vagas;
-- permitir upload de currículos;
-- automatizar processo de triagem e acompanhamento.
-
----
-
-Guia de uso criado para facilitar a apresentação e a avaliação do protótipo.
+**Limitação:** este documento reflete o código inspecionado na branch principal em 07/11/2026; validar os fluxos no navegador e executar os testes continuam necessários.
