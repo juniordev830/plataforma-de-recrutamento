@@ -126,6 +126,10 @@ tests/documentation.test.js     # Consistência dos caminhos documentados
 .github/workflows/interface-chrome.yml # Validação visual Chrome (PR de interface)
 ```
 
+## Guia de uso atualizado
+
+O passo a passo da aplicação atual está em [`docs/guia-de-uso.md`](docs/guia-de-uso.md), incluindo instalação, cadastro de candidatos, busca, vagas salvas, candidaturas e diagnóstico de erros HTTP 401/403. A interface depende do servidor Express; não basta abrir `index.html` como arquivo local.
+
 ## Auditoria técnica
 
 Consulte [`docs/AUDITORIA_E_PLANO_DE_MELHORIAS.md`](docs/AUDITORIA_E_PLANO_DE_MELHORIAS.md) para os achados iniciais, prioridades e verificações pendentes. A auditoria é estática; não considere os testes como aprovados até executá-los.
