@@ -177,10 +177,18 @@
 
     async function api(route, options = {}) {
       const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
-      if (accessToken) headers.Authorization = 'Bearer ' + accessToken;
+      // Keep the token used by this request so an old 401 cannot close a newer session.
+      const requestToken = accessToken;
+      if (requestToken) headers.Authorization = 'Bearer ' + requestToken;
       const response = await fetch('/api' + route, { ...options, headers });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.message || 'Não foi possível concluir a solicitação.');
+      if (!response.ok) {
+        if (response.status === 401 && requestToken && requestToken === accessToken &&
+            route !== '/login' && route !== '/register') {
+          clearSession('Sua sessão expirou. Entre novamente.', 'error');
+        }
+        throw new Error(payload.message || 'Não foi possível concluir a solicitação.');
+      }
       return payload;
     }
 
@@ -406,7 +414,7 @@
       activeJobFilters = { q: '', type: '' };
       loadJobs();
     });
-    $('logout').addEventListener('click', () => {
+    function clearSession(message, tone = 'success') {
       accessToken = null; currentUser = null;
       sessionVersion++; savedRequestSequence++;
       savedJobs = []; savedJobIds = new Set(); pendingSaves = new Set(); savedLoading = false;
@@ -417,7 +425,14 @@
       $('applications').textContent = '';
       $('profile-name').textContent = '';
       $('profile-email').textContent = '';
-      renderAccount(); setRegisterMode(false); setStatus('Você saiu da sua conta.', 'success'); loadJobs();
+      renderAccount();
+      setRegisterMode(false);
+      setStatus(message, tone);
+      loadJobs();
+    }
+
+    $('logout').addEventListener('click', () => {
+      clearSession('Você saiu da sua conta.');
     });
     $('refresh-jobs').addEventListener('click', loadJobs);
     $('nav-jobs').addEventListener('click', () => $('jobs-heading').scrollIntoView({ behavior: 'smooth' }));

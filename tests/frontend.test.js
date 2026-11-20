@@ -56,8 +56,8 @@ function createPage() {
   return {
     element,
     requests,
-    reply(index, payload, ok = true) {
-      requests[index].resolve({ ok, json: async () => payload });
+    reply(index, payload, ok = true, status = ok ? 200 : 400) {
+      requests[index].resolve({ ok, status, json: async () => payload });
     }
   };
 }
@@ -247,4 +247,43 @@ test('resultado antigo não substitui a lista atual de candidaturas', async () =
   page.reply(newest - 1, []);
   await flush();
   assert.match(page.element('applications').innerHTML, /Vaga atual/);
+});
+
+test('401 em rota protegida encerra a sessão e orienta novo login', async () => {
+  const job = { id: 8, title: 'Dev Python', company: 'Exemplo', location: 'Remoto', type: 'fulltime' };
+  const page = createPage();
+  await loginCandidate(page, job);
+
+  page.element('nav-applications').handlers.click();
+  const protectedIndex = page.requests.findLastIndex(request => request.url === '/api/applications');
+  assert.equal(page.requests[protectedIndex].options.headers.Authorization, 'Bearer test-token');
+  page.reply(protectedIndex, { message: 'Token inválido ou expirado.' }, false, 401);
+  await flush();
+
+  assert.equal(page.element('auth-panel').classList.contains('hidden'), false);
+  assert.equal(page.element('profile-panel').classList.contains('hidden'), true);
+  assert.equal(page.element('profile-name').textContent, '');
+  assert.equal(page.element('applications-section').classList.contains('hidden'), true);
+  assert.match(page.element('auth-status').textContent, /sessão expirou/i);
+
+  const refreshIndex = page.requests.findLastIndex(request => request.url === '/api/jobs');
+  assert.ok(refreshIndex > protectedIndex);
+  assert.equal(page.requests[refreshIndex].options.headers.Authorization, undefined);
+  page.reply(refreshIndex, [job]);
+  await flush();
+});
+
+test('401 no login informa credenciais inválidas sem acionar expiração de sessão', async () => {
+  const page = createPage();
+  page.reply(0, []);
+  await flush();
+  page.element('email').value = 'ana@example.com';
+  page.element('password').value = 'senha-errada';
+  const login = page.element('auth-form').handlers.submit({ preventDefault() {} });
+  page.reply(1, { message: 'Credenciais inválidas.' }, false, 401);
+  await login;
+
+  assert.match(page.element('auth-status').textContent, /Credenciais inválidas/);
+  assert.equal(page.requests.length, 2);
+  assert.equal(page.element('auth-panel').classList.contains('hidden'), false);
 });
