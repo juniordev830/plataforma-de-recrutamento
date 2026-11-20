@@ -104,6 +104,17 @@ test('API devolve erros JSON para payload malformado ou grande demais', async ()
   assert.match((await oversized.json()).message, /limite/);
 });
 
+test('HTML applies a strict hash-based Content Security Policy', async () => {
+  const response = await request('/');
+  assert.equal(response.status, 200);
+  const policy = response.headers.get('content-security-policy') || '';
+  assert.match(policy, /default-src 'none'/);
+  assert.match(policy, /script-src 'self' 'sha256-[A-Za-z0-9+/=]+'/);
+  assert.match(policy, /style-src 'self' 'sha256-[A-Za-z0-9+/=]+'/);
+  assert.match(policy, /object-src 'none'/);
+  assert.doesNotMatch(policy, /unsafe-inline|unsafe-eval/);
+});
+
 test('health endpoint reports that the API is running', async () => {
   const response = await request('/api/health');
   assert.equal(response.status, 200);
