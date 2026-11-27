@@ -205,9 +205,35 @@ function createToken(user) {
   );
 }
 
+const BCRYPT_COST = 12;
+const PASSWORD_HASH_PREFIX = "v2" + String.fromCharCode(36);
+const MAX_PASSWORD_BYTES = 1024;
+
+function passwordMaterial(password) {
+  return 'sha256:' + createHash('sha256').update(password, 'utf8').digest('hex');
+}
+
+async function hashPassword(password) {
+  return PASSWORD_HASH_PREFIX + await bcrypt.hash(passwordMaterial(password), BCRYPT_COST);
+}
+
+async function verifyPassword(password, storedHash) {
+  if (typeof storedHash !== 'string') return false;
+  if (storedHash.startsWith(PASSWORD_HASH_PREFIX)) {
+    return bcrypt.compare(passwordMaterial(password), storedHash.slice(PASSWORD_HASH_PREFIX.length));
+  }
+  // Legacy bcrypt hashes silently ignore bytes after the first 72. Never accept
+  // an ambiguous long legacy password; successful short legacy logins are upgraded.
+  if (Buffer.byteLength(password, 'utf8') > 72) return false;
+  return bcrypt.compare(password, storedHash);
+}
+
 // Lightweight in-memory throttle for public authentication endpoints.
 // Use a shared store (for example Redis) when deploying multiple instances.
 const authAttemptBuckets = new Map();
+function resetAuthAttemptBuckets() {
+  authAttemptBuckets.clear();
+}
 function authAttemptLimiter(req, res, next) {
   const now = Date.now();
   const key = req.ip || req.socket.remoteAddress || 'unknown';
@@ -285,8 +311,9 @@ app.post('/api/register', authAttemptLimiter, async (req, res) => {
     const normalizedName = typeof name === 'string' ? name.trim() : '';
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
     const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) && normalizedEmail.length <= 254;
-    if (!normalizedName || normalizedName.length > 120 || !validEmail || typeof password !== 'string' || password.length < 8 || password.length > 128) {
-      return res.status(400).json({ message: 'Informe nome (até 120 caracteres), e-mail válido e senha entre 8 e 128 caracteres.' });
+    if (!normalizedName || normalizedName.length > 120 || !validEmail || typeof password !== 'string' || password.length < 8 || password.length > 128 ||
+        Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
+      return res.status(400).json({ message: 'Informe nome (até 120 caracteres), e-mail válido e senha entre 8 e 128 caracteres e 1024 bytes.' });
     }
     if (!['candidate', 'company', 'recruiter'].includes(role)) {
       return res.status(400).json({ message: 'Tipo de conta inválido.' });
@@ -298,7 +325,7 @@ app.post('/api/register', authAttemptLimiter, async (req, res) => {
       return res.status(409).json({ message: 'E-mail já cadastrado.' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const hashedPassword = await hashPassword(password);
     const userInsert = await run(
       `INSERT INTO users (name, email, password, role, companyName)
        VALUES (?, ?, ?, ?, ?)`,
@@ -329,8 +356,9 @@ app.post('/api/login', authAttemptLimiter, async (req, res) => {
     const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
     const password = req.body?.password;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 ||
-        typeof password !== 'string' || password.length < 1 || password.length > 128) {
-      return res.status(400).json({ message: 'Informe um e-mail válido e a senha.' });
+        typeof password !== 'string' || password.length < 1 || password.length > 128 ||
+        Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
+      return res.status(400).json({ message: 'Informe um e-mail válido e uma senha de até 128 caracteres e 1024 bytes.' });
     }
 
     const user = await get('SELECT * FROM users WHERE email = ?', [email]);
@@ -338,9 +366,14 @@ app.post('/api/login', authAttemptLimiter, async (req, res) => {
       return res.status(401).json({ message: 'Credenciais inválidas.' });
     }
 
-    const match = await bcrypt.compare(password, user.password);
+    const wasLegacyHash = !user.password.startsWith(PASSWORD_HASH_PREFIX);
+    const match = await verifyPassword(password, user.password);
     if (!match) {
       return res.status(401).json({ message: 'Credenciais inválidas.' });
+    }
+    if (wasLegacyHash) {
+      const upgradedHash = await hashPassword(password);
+      await run('UPDATE users SET password = ? WHERE id = ?', [upgradedHash, user.id]);
     }
 
     const token = createToken(user);
@@ -613,4 +646,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { app, db, initializeDatabase, start, provisionCompany };
+module.exports = { app, db, initializeDatabase, start, provisionCompany, resetAuthAttemptBuckets };

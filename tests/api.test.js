@@ -1,6 +1,7 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -16,7 +17,7 @@ const testDatabasePath = path.join(os.tmpdir(), `recruitment-test-${randomUUID()
 process.env.DATABASE_PATH = testDatabasePath;
 
 // Load a temporary server copy and keep the test database in the OS temp directory.
-const { app, db, initializeDatabase, provisionCompany } = require(path.join(tempDir, 'server.js'));
+const { app, db, initializeDatabase, provisionCompany, resetAuthAttemptBuckets } = require(path.join(tempDir, 'server.js'));
 
 let server;
 let baseUrl;
@@ -473,4 +474,55 @@ test('applications reject coerced job identifiers such as arrays', async () => {
     body: JSON.stringify({ jobId: [jobs[0].id] })
   });
   assert.equal(response.status, 400);
+});
+
+
+test('password suffixes beyond bcrypt’s 72-byte boundary remain significant', async () => {
+  resetAuthAttemptBuckets();
+  const email = `long-password-${randomUUID()}@example.com`;
+  const prefix = 'a'.repeat(72);
+  const password = prefix + '-original-suffix';
+  const differentSuffix = prefix + '-different-suffix';
+
+  const registration = await request('/api/register', {
+    method: 'POST',
+    body: JSON.stringify({ name: 'Long Password', email, password })
+  });
+  assert.equal(registration.status, 201);
+
+  const wrongSuffix = await request('/api/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password: differentSuffix })
+  });
+  assert.equal(wrongSuffix.status, 401, 'a matching first 72 bytes must not authenticate');
+
+  const correctPassword = await request('/api/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password })
+  });
+  assert.equal(correctPassword.status, 200);
+});
+
+test('legacy bcrypt password hashes are upgraded after successful login', async () => {
+  resetAuthAttemptBuckets();
+  const email = `legacy-password-${randomUUID()}@example.com`;
+  const password = 'legacy-password-123';
+  const legacyHash = await bcrypt.hash(password, 12);
+  await new Promise((resolve, reject) => {
+    db.run('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
+      ['Legacy User', email, legacyHash, 'candidate'],
+      error => error ? reject(error) : resolve());
+  });
+
+  const login = await request('/api/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password })
+  });
+  assert.equal(login.status, 200);
+
+  const upgradedHash = await new Promise((resolve, reject) => {
+    db.get('SELECT password FROM users WHERE email = ?', [email],
+      (error, row) => error ? reject(error) : resolve(row.password));
+  });
+  assert.match(upgradedHash, /^v2\$/);
 });
