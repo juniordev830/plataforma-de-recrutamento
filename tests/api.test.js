@@ -17,7 +17,7 @@ const testDatabasePath = path.join(os.tmpdir(), `recruitment-test-${randomUUID()
 process.env.DATABASE_PATH = testDatabasePath;
 
 // Load a temporary server copy and keep the test database in the OS temp directory.
-const { app, db, initializeDatabase, provisionCompany } = require(path.join(tempDir, 'server.js'));
+const { app, db, initializeDatabase, provisionCompany, resetAuthAttemptBuckets } = require(path.join(tempDir, 'server.js'));
 
 let server;
 let baseUrl;
@@ -478,6 +478,7 @@ test('applications reject coerced job identifiers such as arrays', async () => {
 
 
 test('password suffixes beyond bcrypt’s 72-byte boundary remain significant', async () => {
+  resetAuthAttemptBuckets();
   const email = `long-password-${randomUUID()}@example.com`;
   const prefix = 'a'.repeat(72);
   const password = prefix + '-original-suffix';
@@ -503,6 +504,7 @@ test('password suffixes beyond bcrypt’s 72-byte boundary remain significant', 
 });
 
 test('legacy bcrypt password hashes are upgraded after successful login', async () => {
+  resetAuthAttemptBuckets();
   const email = `legacy-password-${randomUUID()}@example.com`;
   const password = 'legacy-password-123';
   const legacyHash = await bcrypt.hash(password, 12);

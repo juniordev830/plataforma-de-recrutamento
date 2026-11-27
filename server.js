@@ -231,6 +231,9 @@ async function verifyPassword(password, storedHash) {
 // Lightweight in-memory throttle for public authentication endpoints.
 // Use a shared store (for example Redis) when deploying multiple instances.
 const authAttemptBuckets = new Map();
+function resetAuthAttemptBuckets() {
+  authAttemptBuckets.clear();
+}
 function authAttemptLimiter(req, res, next) {
   const now = Date.now();
   const key = req.ip || req.socket.remoteAddress || 'unknown';
@@ -643,4 +646,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { app, db, initializeDatabase, start, provisionCompany };
+module.exports = { app, db, initializeDatabase, start, provisionCompany, resetAuthAttemptBuckets };
