@@ -206,7 +206,28 @@ function createToken(user) {
 }
 
 const BCRYPT_COST = 12;
-const PASSWORD_HASH_PREFIX = 'v2
+const PASSWORD_HASH_PREFIX = "v2" + String.fromCharCode(36);
+const MAX_PASSWORD_BYTES = 1024;
+
+function passwordMaterial(password) {
+  return 'sha256:' + createHash('sha256').update(password, 'utf8').digest('hex');
+}
+
+async function hashPassword(password) {
+  return PASSWORD_HASH_PREFIX + await bcrypt.hash(passwordMaterial(password), BCRYPT_COST);
+}
+
+async function verifyPassword(password, storedHash) {
+  if (typeof storedHash !== 'string') return false;
+  if (storedHash.startsWith(PASSWORD_HASH_PREFIX)) {
+    return bcrypt.compare(passwordMaterial(password), storedHash.slice(PASSWORD_HASH_PREFIX.length));
+  }
+  // Legacy bcrypt hashes silently ignore bytes after the first 72. Never accept
+  // an ambiguous long legacy password; successful short legacy logins are upgraded.
+  if (Buffer.byteLength(password, 'utf8') > 72) return false;
+  return bcrypt.compare(password, storedHash);
+}
+
 // Use a shared store (for example Redis) when deploying multiple instances.
 const authAttemptBuckets = new Map();
 function authAttemptLimiter(req, res, next) {
