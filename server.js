@@ -205,6 +205,445 @@ function createToken(user) {
   );
 }
 
+const BCRYPT_COST = 12;
+const PASSWORD_HASH_PREFIX = 'v2
+// Use a shared store (for example Redis) when deploying multiple instances.
+const authAttemptBuckets = new Map();
+function authAttemptLimiter(req, res, next) {
+  const now = Date.now();
+  const key = req.ip || req.socket.remoteAddress || 'unknown';
+  let bucket = authAttemptBuckets.get(key);
+  if (!bucket || now - bucket.startedAt >= 15 * 60 * 1000) {
+    bucket = { startedAt: now, count: 0 };
+    authAttemptBuckets.set(key, bucket);
+  }
+  bucket.count += 1;
+  if (bucket.count > 20) {
+    res.set('Retry-After', String(Math.ceil((15 * 60 * 1000 - (now - bucket.startedAt)) / 1000)));
+    return res.status(429).json({ message: 'Muitas tentativas. Tente novamente em alguns minutos.' });
+  }
+  // Bound memory usage by pruning expired buckets and limiting stored keys.
+  if (authAttemptBuckets.size > 10000) {
+    for (const [bucketKey, value] of authAttemptBuckets) {
+      if (now - value.startedAt >= 15 * 60 * 1000) authAttemptBuckets.delete(bucketKey);
+    }
+    if (authAttemptBuckets.size > 10000) authAttemptBuckets.delete(authAttemptBuckets.keys().next().value);
+  }
+  next();
+}
+
+async function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Token ausente ou inválido.' });
+  }
+
+  const token = authHeader.slice('Bearer '.length);
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET, {
+      algorithms: ['HS256'],
+      issuer: 'plataforma-de-recrutamento',
+      audience: 'recruitment-api'
+    });
+  } catch {
+    return res.status(401).json({ message: 'Token inválido ou expirado.' });
+  }
+
+  if (!Number.isSafeInteger(decoded.id) || decoded.id <= 0) {
+    return res.status(401).json({ message: 'Token inválido ou expirado.' });
+  }
+
+  try {
+    // Current database identity and role, not stale privileges embedded in a JWT.
+    const user = await get('SELECT id, name, email, role, companyName FROM users WHERE id = ?', [decoded.id]);
+    if (!user) {
+      return res.status(401).json({ message: 'Conta não encontrada ou desativada.' });
+    }
+    req.user = user;
+    return next();
+  } catch (error) {
+    console.error('Erro ao validar conta:', error.message);
+    return res.status(500).json({ message: 'Não foi possível validar a sessão.' });
+  }
+}
+
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, message: 'API funcionando', timestamp: new Date().toISOString() });
+});
+
+app.post('/api/register', authAttemptLimiter, async (req, res) => {
+  try {
+    const { name, email, password } = req.body && typeof req.body === 'object' && !Array.isArray(req.body)
+      ? req.body : {};
+    // Public registration must never grant privileged roles. Provision company/recruiter accounts out of band.
+    if (req.body?.role !== undefined && req.body.role !== 'candidate') {
+      return res.status(400).json({ message: 'Tipo de conta não permitido no cadastro público.' });
+    }
+    const role = 'candidate';
+
+    const normalizedName = typeof name === 'string' ? name.trim() : '';
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) && normalizedEmail.length <= 254;
+    if (!normalizedName || normalizedName.length > 120 || !validEmail || typeof password !== 'string' || password.length < 8 || password.length > 128 ||
+        Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
+      return res.status(400).json({ message: 'Informe nome (até 120 caracteres), e-mail válido e senha entre 8 e 128 caracteres e 1024 bytes.' });
+    }
+    if (!['candidate', 'company', 'recruiter'].includes(role)) {
+      return res.status(400).json({ message: 'Tipo de conta inválido.' });
+    }
+    const normalizedCompanyName = '';
+
+    const existingUser = await get('SELECT id FROM users WHERE email = ?', [normalizedEmail]);
+    if (existingUser) {
+      return res.status(409).json({ message: 'E-mail já cadastrado.' });
+    }
+
+    const hashedPassword = await hashPassword(password);
+    const userInsert = await run(
+      `INSERT INTO users (name, email, password, role, companyName)
+       VALUES (?, ?, ?, ?, ?)`,
+      [normalizedName, normalizedEmail, hashedPassword, role, normalizedCompanyName]
+    );
+
+    const user = await get('SELECT id, name, email, role, companyName FROM users WHERE id = ?', [userInsert.id]);
+    const token = createToken(user);
+
+    return res.status(201).json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        companyName: user.companyName || ''
+      }
+    });
+  } catch (error) {
+    console.error('Erro no registro:', error);
+    return res.status(500).json({ message: 'Erro interno ao registrar usuário.' });
+  }
+});
+
+app.post('/api/login', authAttemptLimiter, async (req, res) => {
+  try {
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    const password = req.body?.password;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 ||
+        typeof password !== 'string' || password.length < 1 || password.length > 128 ||
+        Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
+      return res.status(400).json({ message: 'Informe um e-mail válido e uma senha de até 128 caracteres e 1024 bytes.' });
+    }
+
+    const user = await get('SELECT * FROM users WHERE email = ?', [email]);
+    if (!user) {
+      return res.status(401).json({ message: 'Credenciais inválidas.' });
+    }
+
+    const wasLegacyHash = !user.password.startsWith(PASSWORD_HASH_PREFIX);
+    const match = await verifyPassword(password, user.password);
+    if (!match) {
+      return res.status(401).json({ message: 'Credenciais inválidas.' });
+    }
+    if (wasLegacyHash) {
+      const upgradedHash = await hashPassword(password);
+      await run('UPDATE users SET password = ? WHERE id = ?', [upgradedHash, user.id]);
+    }
+
+    const token = createToken(user);
+
+    return res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        companyName: user.companyName || ''
+      }
+    });
+  } catch (error) {
+    console.error('Erro no login:', error);
+    return res.status(500).json({ message: 'Erro interno ao autenticar usuário.' });
+  }
+});
+
+function parsePageParameter(value, fallback) {
+  if (value === undefined) return fallback;
+  return typeof value === 'string' && /^[0-9]+$/.test(value) ? Number(value) : NaN;
+}
+
+app.get('/api/jobs', async (req, res) => {
+  try {
+    const { q, type, location, limit, offset } = req.query;
+    const supportedTypes = ['fulltime', 'parttime', 'contract', 'internship', 'temporary'];
+    const selectedLimit = parsePageParameter(limit, 50);
+    const selectedOffset = parsePageParameter(offset, 0);
+    if ((q !== undefined && (typeof q !== 'string' || q.length > 120)) ||
+        (type !== undefined && (typeof type !== 'string' || !supportedTypes.includes(type))) ||
+        (location !== undefined && (typeof location !== 'string' || location.length > 120)) ||
+        !Number.isSafeInteger(selectedLimit) || selectedLimit < 1 || selectedLimit > 100 ||
+        !Number.isSafeInteger(selectedOffset) || selectedOffset < 0 || selectedOffset > 100000) {
+      return res.status(400).json({ message: 'Filtros ou paginação de vagas inválidos.' });
+    }
+
+    const conditions = [];
+    const parameters = [];
+    if (q && q.trim()) {
+      conditions.push("instr(lower(title || ' ' || company || ' ' || location), lower(?)) > 0");
+      parameters.push(q.trim());
+    }
+    if (type) {
+      conditions.push('type = ?');
+      parameters.push(type);
+    }
+    if (location && location.trim()) {
+      conditions.push("instr(lower(location), lower(?)) > 0");
+      parameters.push(location.trim());
+    }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const [totalRow, jobs] = await Promise.all([
+      get(`SELECT COUNT(*) AS total FROM jobs ${where}`, parameters),
+      all(`SELECT * FROM jobs ${where} ORDER BY id DESC LIMIT ? OFFSET ?`, [...parameters, selectedLimit, selectedOffset])
+    ]);
+    res.set('X-Total-Count', String(totalRow.total));
+    res.set('X-Page-Limit', String(selectedLimit));
+    res.set('X-Page-Offset', String(selectedOffset));
+    return res.json(jobs);
+  } catch (error) {
+    console.error('Erro ao listar vagas:', error);
+    return res.status(500).json({ message: 'Erro ao listar vagas.' });
+  }
+});
+
+app.post('/api/jobs', authMiddleware, async (req, res) => {
+  try {
+    const user = req.user;
+    const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+    const location = typeof req.body?.location === 'string' ? req.body.location.trim() : '';
+    const type = typeof req.body?.type === 'string' ? req.body.type.trim() : '';
+    const typeLabel = typeof req.body?.typeLabel === 'string' ? req.body.typeLabel.trim() : type;
+    const description = typeof req.body?.description === 'string' ? req.body.description.trim() : '';
+    const short = typeof req.body?.short === 'string' && req.body.short.trim() ? req.body.short.trim() : description.slice(0, 120);
+    const company = typeof user.companyName === 'string' ? user.companyName.trim() : '';
+
+    if (!['company', 'recruiter'].includes(user.role)) {
+      return res.status(403).json({ message: 'Apenas empresas e recrutadores podem publicar vagas.' });
+    }
+    if (!company) return res.status(400).json({ message: 'O cadastro da empresa precisa ser atualizado antes de publicar vagas.' });
+    if (!title || title.length > 160 || !location || location.length > 160 ||
+        !['fulltime', 'parttime', 'contract', 'internship', 'temporary'].includes(type) ||
+        !description || description.length > 10000 || typeLabel.length > 80 || short.length > 300) {
+      return res.status(400).json({ message: 'Dados da vaga inválidos ou incompletos.' });
+    }
+
+    const result = await run(
+      `INSERT INTO jobs (title, company, location, type, typeLabel, description, short)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [title, company, location, type, typeLabel || type, description, short]
+    );
+
+    const created = await get('SELECT * FROM jobs WHERE id = ?', [result.id]);
+    return res.status(201).json(created);
+  } catch (error) {
+    console.error('Erro ao criar vaga:', error);
+    return res.status(500).json({ message: 'Erro ao criar vaga.' });
+  }
+});
+
+function parseJobId(value) {
+  if (typeof value !== 'string' || !/^[1-9][0-9]*$/.test(value)) return null;
+  const id = Number(value);
+  return Number.isSafeInteger(id) ? id : null;
+}
+
+function requireCandidate(req, res, next) {
+  if (req.user.role !== 'candidate') {
+    return res.status(403).json({ message: 'Acesso permitido apenas para candidatos.' });
+  }
+  next();
+}
+
+app.get('/api/saved-jobs', authMiddleware, requireCandidate, async (req, res) => {
+  try {
+    const jobs = await all(`
+      SELECT jobs.*, saved_jobs.createdAt AS savedAt
+      FROM saved_jobs JOIN jobs ON jobs.id = saved_jobs.jobId
+      WHERE saved_jobs.userId = ?
+      ORDER BY saved_jobs.createdAt DESC, jobs.id DESC
+    `, [req.user.id]);
+    return res.json(jobs);
+  } catch (error) {
+    console.error('Erro ao listar vagas salvas:', error.message);
+    return res.status(500).json({ message: 'Não foi possível listar as vagas salvas.' });
+  }
+});
+
+app.put('/api/saved-jobs/:jobId', authMiddleware, requireCandidate, async (req, res) => {
+  const jobId = parseJobId(req.params.jobId);
+  if (jobId === null) return res.status(400).json({ message: 'Informe uma vaga válida.' });
+  try {
+    const job = await get('SELECT id FROM jobs WHERE id = ?', [jobId]);
+    if (!job) return res.status(404).json({ message: 'Vaga não encontrada.' });
+    await run(`
+      INSERT INTO saved_jobs (userId, jobId) VALUES (?, ?)
+      ON CONFLICT(userId, jobId) DO NOTHING
+    `, [req.user.id, jobId]);
+    return res.json({ jobId, saved: true });
+  } catch (error) {
+    if (error.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' ||
+        (error.code === 'SQLITE_CONSTRAINT' && /FOREIGN KEY constraint failed/.test(error.message))) {
+      return res.status(404).json({ message: 'Vaga não encontrada.' });
+    }
+    console.error('Erro ao salvar vaga:', error.message);
+    return res.status(500).json({ message: 'Não foi possível salvar a vaga.' });
+  }
+});
+
+app.delete('/api/saved-jobs/:jobId', authMiddleware, requireCandidate, async (req, res) => {
+  const jobId = parseJobId(req.params.jobId);
+  if (jobId === null) return res.status(400).json({ message: 'Informe uma vaga válida.' });
+  try {
+    await run('DELETE FROM saved_jobs WHERE userId = ? AND jobId = ?', [req.user.id, jobId]);
+    return res.status(204).end();
+  } catch (error) {
+    console.error('Erro ao remover vaga salva:', error.message);
+    return res.status(500).json({ message: 'Não foi possível remover a vaga salva.' });
+  }
+});
+
+app.post('/api/applications', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'candidate') {
+      return res.status(403).json({ message: 'Apenas candidatos podem se candidatar a vagas.' });
+    }
+
+    // Do not let JavaScript coerce arrays/objects into valid IDs (e.g. [1] -> 1).
+    const submittedJobId = req.body?.jobId;
+    const validIdType = (typeof submittedJobId === 'number' && Number.isSafeInteger(submittedJobId)) ||
+      (typeof submittedJobId === 'string' && /^[1-9][0-9]*$/.test(submittedJobId));
+    const jobId = validIdType ? Number(submittedJobId) : NaN;
+    if (!Number.isSafeInteger(jobId) || jobId <= 0) {
+      return res.status(400).json({ message: 'Informe uma vaga válida.' });
+    }
+    const job = await get('SELECT id, title, company FROM jobs WHERE id = ?', [jobId]);
+    if (!job) return res.status(404).json({ message: 'Vaga não encontrada.' });
+
+    const result = await run(
+      `INSERT INTO applications (userId, jobId, jobTitle, company, name, email)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [req.user.id, job.id, job.title, job.company, req.user.name, req.user.email]
+    );
+
+    const created = await get('SELECT * FROM applications WHERE id = ?', [result.id]);
+    return res.status(201).json(created);
+  } catch (error) {
+    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+        (error.code === 'SQLITE_CONSTRAINT' && /UNIQUE constraint failed/.test(error.message))) {
+      return res.status(409).json({ message: 'Você já se candidatou a esta vaga.' });
+    }
+    console.error('Erro ao salvar candidatura:', error.message);
+    return res.status(500).json({ message: 'Não foi possível registrar a candidatura.' });
+  }
+});
+
+app.get('/api/applications', authMiddleware, async (req, res) => {
+  try {
+    const user = req.user;
+
+    if (user.role !== 'candidate') {
+      return res.status(403).json({ message: 'Acesso permitido apenas para candidatos.' });
+    }
+
+    const rows = await all('SELECT * FROM applications WHERE userId = ? ORDER BY id DESC', [user.id]);
+    return res.json(rows);
+  } catch (error) {
+    console.error('Erro ao listar candidaturas:', error);
+    return res.status(500).json({ message: 'Erro ao listar candidaturas.' });
+  }
+});
+
+app.use('/api', (req, res) => res.status(404).json({ message: 'Endpoint da API não encontrado.' }));
+
+// Keep the page self-contained while allowing only its exact inline script/style.
+// No wildcard or 'unsafe-inline': injected markup cannot run arbitrary scripts.
+const indexPath = path.join(__dirname, 'index.html');
+const indexSource = fs.readFileSync(indexPath, 'utf8');
+function inlineBlockHashes(tag) {
+  const tagRegex = new RegExp('<' + tag + '(?:\\s[^>]*)?>([\\s\\S]*?)<\\/' + tag + '>', 'gi');
+  return [...indexSource.matchAll(tagRegex)].map((match) =>
+    "'sha256-" + createHash('sha256').update(match[1], 'utf8').digest('base64') + "'"
+  );
+}
+const pageCsp = [
+  "default-src 'none'",
+  "script-src 'self' " + inlineBlockHashes('script').join(' '),
+  "style-src 'self' " + inlineBlockHashes('style').join(' '),
+  "connect-src 'self'",
+  "img-src 'self' data:",
+  "font-src 'self'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "object-src 'none'"
+].join('; ');
+
+// Never mount the repository root: it contains source code and configuration.
+app.get('/', (req, res) => {
+  res.set('Content-Security-Policy', pageCsp);
+  res.sendFile(indexPath);
+});
+
+app.use((req, res) => res.status(404).json({ message: 'Recurso não encontrado.' }));
+
+
+async function provisionCompany(email, companyName) {
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+  const company = typeof companyName === 'string' ? companyName.trim() : '';
+  if (!normalizedEmail || !company || company.length > 160) throw new Error('Informe e-mail existente e empresa com 1 a 160 caracteres.');
+  const result = await run('UPDATE users SET role = ?, companyName = ? WHERE email = ?', ['company', company, normalizedEmail]);
+  if (result.changes !== 1) throw new Error('Conta não encontrada. Cadastre a conta antes do provisionamento.');
+}
+function start() {
+  return initializeDatabase().then(() => app.listen(PORT, () => {
+    console.log(`Servidor iniciado em http://localhost:${PORT}`);
+  }));
+}
+
+if (require.main === module) {
+  const operation = process.argv[2] === '--provision-company'
+    ? initializeDatabase().then(() => provisionCompany(process.argv[3], process.argv[4])).finally(() => db.close())
+    : start();
+  operation.catch((error) => {
+    console.error('Erro na inicialização do banco:', error.message);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { app, db, initializeDatabase, start, provisionCompany };
+;
+const MAX_PASSWORD_BYTES = 1024;
+
+function passwordMaterial(password) {
+  return 'sha256:' + createHash('sha256').update(password, 'utf8').digest('hex');
+}
+
+async function hashPassword(password) {
+  return PASSWORD_HASH_PREFIX + await bcrypt.hash(passwordMaterial(password), BCRYPT_COST);
+}
+
+async function verifyPassword(password, storedHash) {
+  if (typeof storedHash !== 'string') return false;
+  if (storedHash.startsWith(PASSWORD_HASH_PREFIX)) {
+    return bcrypt.compare(passwordMaterial(password), storedHash.slice(PASSWORD_HASH_PREFIX.length));
+  }
+  // Legacy bcrypt hashes silently ignore bytes after the first 72. Never accept
+  // an ambiguous long legacy password; successful short legacy logins are upgraded.
+  if (Buffer.byteLength(password, 'utf8') > 72) return false;
+  return bcrypt.compare(password, storedHash);
+}
+
 // Lightweight in-memory throttle for public authentication endpoints.
 // Use a shared store (for example Redis) when deploying multiple instances.
 const authAttemptBuckets = new Map();
