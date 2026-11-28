@@ -7,6 +7,7 @@ const path = require('path');
 const os = require('node:os');
 const fs = require('node:fs');
 const { createHash, randomUUID } = require('node:crypto');
+const { createVerifiedRegistration, validDeliveryAddress } = require('./registration');
 require('dotenv').config();
 
 const app = express();
@@ -133,6 +134,15 @@ async function initializeDatabase() {
     )
   `);
 
+  await run(`CREATE TABLE IF NOT EXISTS registration_requests (
+    email TEXT PRIMARY KEY,
+    nonce TEXT NOT NULL,
+    expiresAt INTEGER NOT NULL,
+    nextAttempt INTEGER NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    sent INTEGER NOT NULL DEFAULT 0
+  )`);
+  await run('CREATE INDEX IF NOT EXISTS idx_registration_expiry ON registration_requests(expiresAt)');
   await run(`CREATE TABLE IF NOT EXISTS revoked_tokens (
     digest TEXT PRIMARY KEY,
     expiresAt INTEGER NOT NULL
@@ -214,8 +224,16 @@ function createToken(user) {
 const BCRYPT_COST = 12;
 const PASSWORD_HASH_PREFIX = "v2" + String.fromCharCode(36);
 const MAX_PASSWORD_BYTES = 1024;
+const legacyPaddingHashes = new Map();
+function dummyHashForCost(cost) {
+  if (!legacyPaddingHashes.has(cost)) {
+    legacyPaddingHashes.set(cost, bcrypt.hashSync(passwordMaterial('absent-account'), cost));
+  }
+  return legacyPaddingHashes.get(cost);
+}
 // Public fixture hash for timing equalization. An absent account cannot authenticate.
-const DUMMY_PASSWORD_HASH = PASSWORD_HASH_PREFIX + bcrypt.hashSync(passwordMaterial('absent-account'), BCRYPT_COST);
+const DUMMY_PASSWORD_HASH = PASSWORD_HASH_PREFIX + dummyHashForCost(BCRYPT_COST);
+for (let cost = 4; cost < BCRYPT_COST; cost++) dummyHashForCost(cost);
 
 function passwordMaterial(password) {
   return 'sha256:' + createHash('sha256').update(password, 'utf8').digest('hex');
@@ -226,14 +244,28 @@ async function hashPassword(password) {
 }
 
 async function verifyPassword(password, storedHash) {
-  if (typeof storedHash !== 'string') return false;
-  if (storedHash.startsWith(PASSWORD_HASH_PREFIX)) {
-    return bcrypt.compare(passwordMaterial(password), storedHash.slice(PASSWORD_HASH_PREFIX.length));
+  const wellFormed = typeof storedHash === 'string';
+  const current = wellFormed && storedHash.startsWith(PASSWORD_HASH_PREFIX);
+  const legacyEligible = wellFormed && Buffer.byteLength(password, 'utf8') <= 72;
+  const hash = current ? storedHash.slice(PASSWORD_HASH_PREFIX.length) : storedHash;
+  if ((!current && !legacyEligible) || typeof hash !== 'string' ||
+      !/^\$2[aby]\$[0-9]{2}\$[./A-Za-z0-9]{53}$/.test(hash)) {
+    await bcrypt.compare(passwordMaterial(password), dummyHashForCost(BCRYPT_COST));
+    return false;
   }
-  // Legacy bcrypt hashes silently ignore bytes after the first 72. Never accept
-  // an ambiguous long legacy password; successful short legacy logins are upgraded.
-  if (Buffer.byteLength(password, 'utf8') > 72) return false;
-  return bcrypt.compare(password, storedHash);
+
+  const rounds = bcrypt.getRounds(hash);
+  if (rounds < 4 || rounds > 16) {
+    await bcrypt.compare(passwordMaterial(password), dummyHashForCost(BCRYPT_COST));
+    return false;
+  }
+  const material = passwordMaterial(password);
+  const match = await bcrypt.compare(current ? material : password, hash);
+  // The summed work of costs [rounds, BCRYPT_COST) makes up the difference.
+  for (let round = rounds; round < BCRYPT_COST; round++) {
+    await bcrypt.compare(material, dummyHashForCost(round));
+  }
+  return match;
 }
 
 // Lightweight in-memory throttle for public authentication endpoints.
@@ -322,6 +354,13 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, message: 'API funcionando', timestamp: new Date().toISOString() });
 });
 
+const verifyRegistration = process.env.NODE_ENV === 'production' ||
+  !['127.0.0.1', '::1', 'localhost'].includes(HOST.toLowerCase()) ||
+  process.env.REGISTRATION_MODE === 'verified';
+const registration = createVerifiedRegistration({
+  run, get, hashPassword, secret: JWT_SECRET, enabled: verifyRegistration, env: process.env
+});
+
 app.post('/api/register', authAttemptLimiter, async (req, res) => {
   try {
     const { name, email, password } = req.body && typeof req.body === 'object' && !Array.isArray(req.body)
@@ -339,24 +378,37 @@ app.post('/api/register', authAttemptLimiter, async (req, res) => {
         Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
       return res.status(400).json({ message: 'Informe nome (até 120 caracteres), e-mail válido e senha entre 8 e 128 caracteres e 1024 bytes.' });
     }
-    if (!['candidate', 'company', 'recruiter'].includes(role)) {
-      return res.status(400).json({ message: 'Tipo de conta inválido.' });
+    let userId;
+    if (registration.enabled) {
+      if (!validDeliveryAddress(normalizedEmail)) {
+        return res.status(400).json({ message: 'Informe um e-mail válido.' });
+      }
+      if (!registration.canDeliver) {
+        return res.status(503).json({ message: 'Cadastro temporariamente indisponível.' });
+      }
+      if (req.body.code === undefined) {
+        await registration.enqueue(normalizedEmail);
+        return res.status(202).json({
+          confirmationRequired: true,
+          message: 'Se este endereço puder ser cadastrado, você receberá um código por e-mail.'
+        });
+      }
+      userId = await registration.createAccount({
+        email: normalizedEmail, name: normalizedName, password, code: req.body.code
+      });
+      if (!userId) return res.status(400).json({ message: 'Código de confirmação inválido ou expirado.' });
+    } else {
+      const hashedPassword = await hashPassword(password);
+      const inserted = await run(
+        `INSERT OR IGNORE INTO users (name, email, password, role, companyName)
+         VALUES (?, ?, ?, ?, '')`,
+        [normalizedName, normalizedEmail, hashedPassword, role]
+      );
+      if (inserted.changes !== 1) return res.status(409).json({ message: 'E-mail já cadastrado.' });
+      userId = inserted.id;
     }
-    const normalizedCompanyName = '';
 
-    const existingUser = await get('SELECT id FROM users WHERE email = ?', [normalizedEmail]);
-    if (existingUser) {
-      return res.status(409).json({ message: 'E-mail já cadastrado.' });
-    }
-
-    const hashedPassword = await hashPassword(password);
-    const userInsert = await run(
-      `INSERT INTO users (name, email, password, role, companyName)
-       VALUES (?, ?, ?, ?, ?)`,
-      [normalizedName, normalizedEmail, hashedPassword, role, normalizedCompanyName]
-    );
-
-    const user = await get('SELECT id, name, email, role, companyName FROM users WHERE id = ?', [userInsert.id]);
+    const user = await get('SELECT id, name, email, role, companyName FROM users WHERE id = ?', [userId]);
     const token = createToken(user);
 
     return res.status(201).json({
@@ -388,9 +440,8 @@ app.post('/api/login', authAttemptLimiter, async (req, res) => {
     const user = await get('SELECT * FROM users WHERE email = ?', [email]);
     const storedHash = user?.password || DUMMY_PASSWORD_HASH;
     const wasLegacyHash = !storedHash.startsWith(PASSWORD_HASH_PREFIX);
-    const eligible = !wasLegacyHash || Buffer.byteLength(password, 'utf8') <= 72;
-    const match = await verifyPassword(password, eligible ? storedHash : DUMMY_PASSWORD_HASH);
-    if (!user || !eligible || !match) {
+    const match = await verifyPassword(password, storedHash);
+    if (!user || !match) {
       return res.status(401).json({ message: 'Credenciais inválidas.' });
     }
     if (wasLegacyHash) {
@@ -612,6 +663,32 @@ app.get('/api/applications', authMiddleware, async (req, res) => {
   }
 });
 
+app.get('/api/privacy/export', authMiddleware, requireCandidate, async (req, res) => {
+  const limit = parsePageParameter(req.query.limit, 100);
+  const offset = parsePageParameter(req.query.offset, 0);
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100 ||
+      !Number.isSafeInteger(offset) || offset < 0) {
+    return res.status(400).json({ message: 'Paginação inválida.' });
+  }
+  try {
+    const [applications, savedJobs] = await Promise.all([
+      all(`SELECT jobId, jobTitle, company, name, email, status, createdAt FROM applications
+           WHERE userId = ? ORDER BY id LIMIT ? OFFSET ?`, [req.user.id, limit + 1, offset]),
+      all(`SELECT jobId, createdAt FROM saved_jobs
+           WHERE userId = ? ORDER BY jobId LIMIT ? OFFSET ?`, [req.user.id, limit + 1, offset])
+    ]);
+    return res.json({
+      profile: { name: req.user.name, email: req.user.email },
+      applications: applications.slice(0, limit),
+      savedJobs: savedJobs.slice(0, limit),
+      nextOffset: applications.length > limit || savedJobs.length > limit ? offset + limit : null
+    });
+  } catch (error) {
+    console.error('Erro ao exportar dados da conta:', error.code);
+    return res.status(500).json({ message: 'Não foi possível exportar os dados.' });
+  }
+});
+
 app.use('/api', (req, res) => res.status(404).json({ message: 'Endpoint da API não encontrado.' }));
 
 // Keep the page self-contained while allowing only its exact inline script/style.
@@ -654,9 +731,13 @@ async function provisionCompany(email, companyName) {
   if (result.changes !== 1) throw new Error('Conta não encontrada. Cadastre a conta antes do provisionamento.');
 }
 function start() {
-  return initializeDatabase().then(() => app.listen(PORT, HOST, () => {
-    console.log(`Servidor iniciado em http://${HOST}:${PORT}`);
-  }));
+  return initializeDatabase().then(() => {
+    const server = app.listen(PORT, HOST, () => {
+      console.log(`Servidor iniciado em http://${HOST}:${PORT}`);
+    });
+    registration.startWorker(server);
+    return server;
+  });
 }
 
 if (require.main === module) {
@@ -669,4 +750,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { app, db, initializeDatabase, start, provisionCompany, resetAuthAttemptBuckets };
+module.exports = { app, db, initializeDatabase, start, provisionCompany, resetAuthAttemptBuckets, registration };
