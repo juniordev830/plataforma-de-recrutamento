@@ -432,7 +432,14 @@
     }
 
     $('logout').addEventListener('click', () => {
+      const revoke = accessToken ? api('/logout', { method: 'POST' }) : Promise.resolve();
       clearSession('Você saiu da sua conta.');
+      const logoutVersion = sessionVersion;
+      revoke.catch(() => {
+        if (sessionVersion === logoutVersion && !accessToken) {
+          setStatus('Você saiu deste navegador, mas o servidor não confirmou o encerramento.', 'error');
+        }
+      });
     });
     $('refresh-jobs').addEventListener('click', loadJobs);
     $('nav-jobs').addEventListener('click', () => $('jobs-heading').scrollIntoView({ behavior: 'smooth' }));

@@ -227,12 +227,15 @@ test('resposta de login anterior não reabre a sessão depois de sair', async ()
   page.reply(1, { token: 'old', user: { id: 1, name: 'Bruno', email: 'bruno@example.com', role: 'candidate' } });
   page.reply(3, []);
   page.reply(4, []);
-  page.reply(5, []);
+  assert.equal(page.requests[5].url, '/api/logout');
+  assert.equal(page.requests[5].options.method, 'POST');
+  page.reply(5, { ok: true });
+  page.reply(6, []);
   await Promise.all([first, latest]);
   assert.equal(page.element('profile-panel').classList.contains('hidden'), true);
   assert.equal(page.element('profile-name').textContent, '');
   assert.match(page.element('auth-status').textContent, /saiu da sua conta/);
-  assert.equal(page.requests.length, 6);
+  assert.equal(page.requests.length, 7);
 });
 
 test('resultado antigo não substitui a lista atual de candidaturas', async () => {
