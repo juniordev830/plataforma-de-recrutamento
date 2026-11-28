@@ -61,6 +61,13 @@ test('candidato encontra, salva e acompanha a candidatura à vaga publicada', as
   await job.getByRole('button', { name: 'Candidatar-se' }).click();
   await page.getByRole('button', { name: 'Minhas candidaturas' }).click();
   await expect(page.locator('#applications')).toContainText(title);
+  const downloaded = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Baixar meus dados' }).click();
+  const download = await downloaded;
+  const exported = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
+  expect(exported.profile.email).toBe('candidata@example.test');
+  expect(exported.applications.map(item => item.jobTitle)).toContain(title);
+  expect(exported.savedJobs).toHaveLength(1);
   await page.getByRole('button', { name: 'Sair da conta' }).click();
   await expect(page.locator('#applications-section')).toBeHidden();
 });
