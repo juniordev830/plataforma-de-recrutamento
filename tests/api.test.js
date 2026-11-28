@@ -526,3 +526,23 @@ test('legacy bcrypt password hashes are upgraded after successful login', async 
   });
   assert.match(upgradedHash, /^v2\$/);
 });
+
+test('logout revoga somente o token apresentado e preserva outra sessão da conta', async () => {
+  resetAuthAttemptBuckets();
+  const registration = await registerCandidate();
+  const login = await request('/api/login', {
+    method: 'POST',
+    body: JSON.stringify({ email: registration.user.email, password: 'strong-password-123' })
+  });
+  assert.equal(login.status, 200);
+  const { token: secondToken } = await login.json();
+  assert.notEqual(registration.token, secondToken);
+  assert.equal(jwt.decode(secondToken).email, undefined);
+
+  const headers = { Authorization: 'Bearer ' + registration.token };
+  assert.equal((await request('/api/logout', { method: 'POST', headers })).status, 200);
+  assert.equal((await request('/api/saved-jobs', { headers })).status, 401);
+  assert.equal((await request('/api/saved-jobs', {
+    headers: { Authorization: 'Bearer ' + secondToken }
+  })).status, 200);
+});

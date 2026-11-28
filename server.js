@@ -6,11 +6,12 @@ const jwt = require('jsonwebtoken');
 const path = require('path');
 const os = require('node:os');
 const fs = require('node:fs');
-const { createHash } = require('node:crypto');
+const { createHash, randomUUID } = require('node:crypto');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = Number(process.env.PORT || 3001);
+const HOST = process.env.HOST || '127.0.0.1';
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET || JWT_SECRET.length < 32) {
   throw new Error('JWT_SECRET é obrigatório e deve ter pelo menos 32 caracteres. Configure-o no arquivo .env.');
@@ -132,6 +133,11 @@ async function initializeDatabase() {
     )
   `);
 
+  await run(`CREATE TABLE IF NOT EXISTS revoked_tokens (
+    digest TEXT PRIMARY KEY,
+    expiresAt INTEGER NOT NULL
+  )`);
+  await run('CREATE INDEX IF NOT EXISTS idx_revoked_tokens_expiry ON revoked_tokens(expiresAt)');
   await run('CREATE INDEX IF NOT EXISTS idx_applications_user_id ON applications(userId)');
   await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_applications_user_job ON applications(userId, jobId)');
 
@@ -199,15 +205,17 @@ async function initializeDatabase() {
 
 function createToken(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, role: user.role, name: user.name, companyName: user.companyName || '' },
+    { id: user.id },
     JWT_SECRET,
-    { expiresIn: '2h', issuer: 'plataforma-de-recrutamento', audience: 'recruitment-api' }
+    { jwtid: randomUUID(), expiresIn: '2h', issuer: 'plataforma-de-recrutamento', audience: 'recruitment-api' }
   );
 }
 
 const BCRYPT_COST = 12;
 const PASSWORD_HASH_PREFIX = "v2" + String.fromCharCode(36);
 const MAX_PASSWORD_BYTES = 1024;
+// Public fixture hash for timing equalization. An absent account cannot authenticate.
+const DUMMY_PASSWORD_HASH = PASSWORD_HASH_PREFIX + bcrypt.hashSync(passwordMaterial('absent-account'), BCRYPT_COST);
 
 function passwordMaterial(password) {
   return 'sha256:' + createHash('sha256').update(password, 'utf8').digest('hex');
@@ -276,23 +284,39 @@ async function authMiddleware(req, res, next) {
     return res.status(401).json({ message: 'Token inválido ou expirado.' });
   }
 
-  if (!Number.isSafeInteger(decoded.id) || decoded.id <= 0) {
+  if (!Number.isSafeInteger(decoded.id) || decoded.id <= 0 || !Number.isSafeInteger(decoded.exp)) {
     return res.status(401).json({ message: 'Token inválido ou expirado.' });
   }
 
   try {
-    // Current database identity and role, not stale privileges embedded in a JWT.
-    const user = await get('SELECT id, name, email, role, companyName FROM users WHERE id = ?', [decoded.id]);
+    const tokenDigest = createHash('sha256').update(token).digest('hex');
+    const user = await get(
+      `SELECT id, name, email, role, companyName FROM users
+       WHERE id = ? AND NOT EXISTS (SELECT 1 FROM revoked_tokens WHERE digest = ?)`,
+      [decoded.id, tokenDigest]
+    );
     if (!user) {
       return res.status(401).json({ message: 'Conta não encontrada ou desativada.' });
     }
     req.user = user;
+    req.session = { digest: tokenDigest, expiresAt: decoded.exp };
     return next();
   } catch (error) {
     console.error('Erro ao validar conta:', error.message);
     return res.status(500).json({ message: 'Não foi possível validar a sessão.' });
   }
 }
+
+app.post('/api/logout', authMiddleware, async (req, res) => {
+  try {
+    await run('INSERT OR IGNORE INTO revoked_tokens (digest, expiresAt) VALUES (?, ?)',
+      [req.session.digest, req.session.expiresAt]);
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error('Erro ao revogar sessão:', error.code);
+    return res.status(500).json({ message: 'Não foi possível encerrar a sessão.' });
+  }
+});
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, message: 'API funcionando', timestamp: new Date().toISOString() });
@@ -362,13 +386,11 @@ app.post('/api/login', authAttemptLimiter, async (req, res) => {
     }
 
     const user = await get('SELECT * FROM users WHERE email = ?', [email]);
-    if (!user) {
-      return res.status(401).json({ message: 'Credenciais inválidas.' });
-    }
-
-    const wasLegacyHash = !user.password.startsWith(PASSWORD_HASH_PREFIX);
-    const match = await verifyPassword(password, user.password);
-    if (!match) {
+    const storedHash = user?.password || DUMMY_PASSWORD_HASH;
+    const wasLegacyHash = !storedHash.startsWith(PASSWORD_HASH_PREFIX);
+    const eligible = !wasLegacyHash || Buffer.byteLength(password, 'utf8') <= 72;
+    const match = await verifyPassword(password, eligible ? storedHash : DUMMY_PASSWORD_HASH);
+    if (!user || !eligible || !match) {
       return res.status(401).json({ message: 'Credenciais inválidas.' });
     }
     if (wasLegacyHash) {
@@ -376,6 +398,7 @@ app.post('/api/login', authAttemptLimiter, async (req, res) => {
       await run('UPDATE users SET password = ? WHERE id = ?', [upgradedHash, user.id]);
     }
 
+    await run('DELETE FROM revoked_tokens WHERE expiresAt <= ?', [Math.floor(Date.now() / 1000)]);
     const token = createToken(user);
 
     return res.json({
@@ -631,8 +654,8 @@ async function provisionCompany(email, companyName) {
   if (result.changes !== 1) throw new Error('Conta não encontrada. Cadastre a conta antes do provisionamento.');
 }
 function start() {
-  return initializeDatabase().then(() => app.listen(PORT, () => {
-    console.log(`Servidor iniciado em http://localhost:${PORT}`);
+  return initializeDatabase().then(() => app.listen(PORT, HOST, () => {
+    console.log(`Servidor iniciado em http://${HOST}:${PORT}`);
   }));
 }
 
