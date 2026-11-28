@@ -130,6 +130,20 @@ tests/documentation.test.js     # Consistência dos caminhos documentados
 
 O passo a passo da aplicação atual está em [`docs/guia-de-uso.md`](docs/guia-de-uso.md), incluindo instalação, cadastro de candidatos, busca, vagas salvas, candidaturas e diagnóstico de erros HTTP 401/403. A interface depende do servidor Express; não basta abrir `index.html` como arquivo local.
 
+## Operação local e testes
+
+| Comando | Finalidade |
+| --- | --- |
+| `npm ci` | Instalar dependências conforme o lockfile |
+| `npm start` | Executar `server.js` |
+| `npm run dev` | Executar com reinício automático em alterações |
+| `npm test` | Executar os testes Node em `tests/*.test.js` |
+| `npm run test:e2e` | Executar os testes de navegador Playwright, após preparar seus navegadores |
+
+O cadastro público cria candidatos. Para provisionar uma empresa, siga o [procedimento de provisionamento](docs/PROVISIONAMENTO.md) com acesso ao servidor e à mesma configuração de banco. Após a promoção, é necessário autenticar-se novamente para obter o novo papel no token. Não publique dados reais de candidatos ou credenciais nos logs de teste.
+
+Para depurar alterações, consulte também a [arquitetura](docs/arquitetura.md) e a [documentação técnica](docs/TECNICO.md).
+
 ## Auditoria técnica
 
 Consulte [`docs/AUDITORIA_E_PLANO_DE_MELHORIAS.md`](docs/AUDITORIA_E_PLANO_DE_MELHORIAS.md) para os achados iniciais, prioridades e verificações pendentes. A auditoria é estática; não considere os testes como aprovados até executá-los.
