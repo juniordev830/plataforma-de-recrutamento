@@ -10,6 +10,7 @@ const { randomUUID } = require('node:crypto');
 const repoRoot = path.resolve(__dirname, '..');
 const tempDir = fs.mkdtempSync(path.join(repoRoot, '.test-tmp-'));
 fs.copyFileSync(path.join(repoRoot, 'server.js'), path.join(tempDir, 'server.js'));
+fs.copyFileSync(path.join(repoRoot, 'registration.js'), path.join(tempDir, 'registration.js'));
 fs.copyFileSync(path.join(repoRoot, 'index.html'), path.join(tempDir, 'index.html'));
 fs.symlinkSync(path.join(repoRoot, 'node_modules'), path.join(tempDir, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
 process.env.JWT_SECRET = 'test-only-secret-key-with-at-least-32-characters';
@@ -545,4 +546,26 @@ test('logout revoga somente o token apresentado e preserva outra sessão da cont
   assert.equal((await request('/api/saved-jobs', {
     headers: { Authorization: 'Bearer ' + secondToken }
   })).status, 200);
+});
+
+test('privacy export contains only data owned by the authenticated candidate', async () => {
+  const owner = await candidateFixture();
+  const anotherCandidate = await candidateFixture();
+  const ownerHeaders = { Authorization: 'Bearer ' + owner.token };
+  assert.equal((await request('/api/saved-jobs/1', {
+    method: 'PUT', headers: ownerHeaders
+  })).status, 200);
+
+  const endpoint = '/api/privacy/export';
+  const ownerResponse = await request(endpoint, { headers: ownerHeaders });
+  assert.equal(ownerResponse.status, 200);
+  assert.equal(ownerResponse.headers.get('cache-control'), 'no-store');
+  const data = await ownerResponse.json();
+  assert.deepEqual(Object.keys(data.profile).sort(), ['email', 'name']);
+  assert.deepEqual(data.savedJobs.map(job => job.jobId), [1]);
+  assert.equal(data.nextOffset, null);
+
+  const otherResponse = await request(endpoint, { headers: { Authorization: 'Bearer ' + anotherCandidate.token } });
+  assert.deepEqual((await otherResponse.json()).savedJobs, []);
+  assert.equal((await request(endpoint)).status, 401);
 });

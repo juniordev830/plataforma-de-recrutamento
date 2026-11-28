@@ -22,7 +22,8 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "10.6.1"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1"

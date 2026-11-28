@@ -132,3 +132,13 @@ O limitador em memória não compartilha estado entre instâncias e não substit
 - Adicionar painel para recrutadores com isolamento por empresa.
 - Revisar autenticação, autorização, logs, backups e configuração de produção antes de publicar o serviço.
 
+
+## Confirmação de cadastro e dados do candidato
+
+`NODE_ENV=production`, escuta fora de loopback ou `REGISTRATION_MODE=verified` ativam a confirmação por e-mail. Nesse modo, configure `REGISTRATION_SMTP_URL` e `REGISTRATION_FROM` no ambiente. Use TLS direto ou SMTP com STARTTLS obrigatório. Sem as configurações de envio, novos cadastros recebem 503 e contas existentes continuam acessíveis. A opção de cadastro direto permanece disponível para desenvolvimento em loopback.
+
+O primeiro POST em `/api/register` devolve 202 com resposta uniforme para endereços novos e registrados. A fila persiste o endereço e um identificador aleatório por até 15 minutos. O servidor envia o código em segundo plano para novos endereços e conclui o cadastro por um segundo POST com `code`. Nomes e senhas de contas pendentes ficam fora da fila.
+
+O candidato pode usar **Baixar meus dados** para obter perfil, candidaturas e vagas salvas. `GET /api/privacy/export` oferece as mesmas informações em páginas autenticadas. Senhas, códigos e credenciais de sessão ficam fora da exportação.
+
+O responsável pela implantação deve definir finalidade, base legal, retenção e canal para solicitações de titulares. Para pedidos de correção ou eliminação, verifique a identidade e as hipóteses de conservação aplicáveis antes de alterar dados. [Direitos dos titulares e formas de exercício](https://www.gov.br/anpd/pt-br/assuntos/titular-de-dados-1/direito-dos-titulares)

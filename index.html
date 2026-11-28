@@ -113,6 +113,11 @@
               <div id="name-field" class="hidden"><label for="name">Nome completo</label><input id="name" name="name" autocomplete="name" maxlength="120" /></div>
               <label for="email">E-mail</label><input id="email" name="email" type="email" autocomplete="email" required maxlength="254" />
               <label for="password">Senha</label><input id="password" name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="128" />
+              <div id="confirmation-field" class="hidden">
+                <label for="confirmation-code">Código de confirmação</label>
+                <input id="confirmation-code" autocomplete="one-time-code" maxlength="43" />
+                <button class="link-button" id="restart-registration" type="button">Alterar e-mail ou reenviar código</button>
+              </div>
               <button class="btn" id="auth-submit" type="submit">Entrar</button>
             </form>
             <p class="status" id="auth-status" role="status" aria-live="polite"></p>
@@ -123,6 +128,8 @@
             <h2>Você está conectado</h2>
             <p id="profile-name"></p>
             <p class="muted" id="profile-email"></p>
+            <button class="btn ghost hidden" id="export-profile" type="button">Baixar meus dados</button>
+            <p class="status" id="profile-status" role="status" aria-live="polite"></p>
             <button class="btn ghost" id="logout" type="button">Sair da conta</button>
           </section>
           <section class="panel">
@@ -141,6 +148,7 @@
     let accessToken = null;
     let currentUser = null;
     let registerMode = false;
+    let pendingConfirmation = false;
     const $ = (id) => document.getElementById(id);
     const jobsContainer = $('jobs');
     let activeJobFilters = { q: '', type: '' };
@@ -196,6 +204,8 @@
       const connected = Boolean(accessToken && currentUser);
       $('auth-panel').classList.toggle('hidden', connected);
       $('profile-panel').classList.toggle('hidden', !connected);
+      $('export-profile').classList.toggle('hidden', !connected || currentUser?.role !== 'candidate');
+      $('profile-status').textContent = '';
       if (connected) {
         $('profile-name').textContent = currentUser.name;
         $('profile-email').textContent = currentUser.email;
@@ -365,12 +375,19 @@
       const payload = isRegistration
         ? { name: $('name').value.trim(), email, password, role: 'candidate' }
         : { email, password };
+      if (isRegistration && pendingConfirmation) payload.code = $('confirmation-code').value.trim();
       if (isRegistration && !payload.name) { setStatus('Informe seu nome completo.', 'error'); return; }
       try {
         const result = await api(isRegistration ? '/register' : '/login', {
           method: 'POST', body: JSON.stringify(payload)
         });
         if (requestId !== authRequestSequence) return;
+        if (isRegistration && result.confirmationRequired) {
+          showConfirmation(true);
+          setStatus(result.message, 'success');
+          return;
+        }
+        if (isRegistration) showConfirmation(false);
         accessToken = result.token;
         currentUser = result.user;
         $('password').value = '';
@@ -390,9 +407,21 @@
       }
     });
 
+    function showConfirmation(enabled) {
+      pendingConfirmation = enabled;
+      $('confirmation-field').classList.toggle('hidden', !enabled);
+      $('confirmation-code').required = enabled;
+      $('confirmation-code').value = '';
+      $('email').readOnly = enabled;
+      $('auth-submit').textContent = enabled ? 'Confirmar cadastro' : 'Criar conta';
+    }
+
+    $('restart-registration').addEventListener('click', () => setRegisterMode(true));
+
     function setRegisterMode(enabled) {
       authRequestSequence++;
       registerMode = enabled;
+      showConfirmation(false);
       $('name-field').classList.toggle('hidden', !enabled);
       $('name').required = enabled;
       $('password').autocomplete = enabled ? 'new-password' : 'current-password';
@@ -430,6 +459,37 @@
       setStatus(message, tone);
       loadJobs();
     }
+
+    $('export-profile').addEventListener('click', async () => {
+      const version = sessionVersion;
+      const button = $('export-profile');
+      const status = $('profile-status');
+      button.disabled = true;
+      status.textContent = 'Preparando seus dados…';
+      try {
+        let offset = 0;
+        const result = { profile: null, applications: [], savedJobs: [] };
+        while (offset !== null) {
+          const page = await api('/privacy/export?offset=' + offset);
+          if (version !== sessionVersion) return;
+          result.profile = page.profile;
+          result.applications.push(...page.applications);
+          result.savedJobs.push(...page.savedJobs);
+          offset = page.nextOffset;
+        }
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' }));
+        link.href = url;
+        link.download = 'meus-dados-oportuniza.json';
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        status.textContent = 'Dados preparados para download.';
+      } catch (error) {
+        if (version === sessionVersion) status.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
 
     $('logout').addEventListener('click', () => {
       const revoke = accessToken ? api('/logout', { method: 'POST' }) : Promise.resolve();
